@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ABG / VBG Interpreter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>ABG / VBG Interpreter</h1>
+            <p class="subtitle">Systematic acid-base analysis with interactive differential diagnosis</p>
+        </header>
+
+        <!-- Combined Input Card -->
+        <section class="card" id="step-values">
+            <!-- Sample Type Toggle (inline) -->
+            <div class="sample-row">
+                <button class="toggle-btn active" data-sample="abg" onclick="setSampleType('abg')">ABG</button>
+                <button class="toggle-btn" data-sample="vbg" onclick="setSampleType('vbg')">VBG</button>
+            </div>
+            <div id="vbg-note" class="info-box hidden">
+                <strong>VBG Conversion:</strong> pH +0.035, PCO2 &minus;5.7 mmHg. PO2 not valid.
+                <a href="https://litfl.com/vbg-versus-abg/" target="_blank" class="adv-src" style="margin-left:6px">LITFL</a>
+            </div>
+
+            <!-- Group 1: Blood Gas (always visible) -->
+            <div class="input-section">
+                <div class="input-section-label">Blood Gas</div>
+                <div class="input-grid">
+                    <div class="input-group">
+                        <label for="pH">pH</label>
+                        <input type="number" id="pH" step="0.01" min="6.5" max="8.0" placeholder="7.40">
+                        <span class="normal-range">7.35 &ndash; 7.45</span>
+                    </div>
+                    <div class="input-group">
+                        <label for="pco2" id="pco2-label">PaCO2 (mmHg)</label>
+                        <input type="number" id="pco2" step="1" min="5" max="150" placeholder="40">
+                        <span class="normal-range">35 &ndash; 45</span>
+                    </div>
+                    <div class="input-group">
+                        <label for="hco3">HCO3&minus; (mmol/L)</label>
+                        <input type="number" id="hco3" step="0.1" min="1" max="60" placeholder="24">
+                        <span class="normal-range">22 &ndash; 26</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group 2: Electrolytes (collapsible) -->
+            <div class="input-section collapsible" id="grp-electrolytes">
+                <div class="input-section-label toggle-section" onclick="toggleSection('grp-electrolytes')">
+                    <span class="section-arrow">&#9654;</span> Electrolytes &amp; Anion Gap
+                    <span class="optional">Na, Cl, Albumin</span>
+                </div>
+                <div class="section-body">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label for="na">Na+ (mmol/L)</label>
+                            <input type="number" id="na" step="1" min="100" max="180" placeholder="140">
+                            <span class="normal-range">135 &ndash; 145</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="cl">Cl&minus; (mmol/L)</label>
+                            <input type="number" id="cl" step="1" min="70" max="130" placeholder="100">
+                            <span class="normal-range">98 &ndash; 106</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="albumin">Albumin (g/dL)</label>
+                            <input type="number" id="albumin" step="0.1" min="0.5" max="6" placeholder="4.0">
+                            <span class="normal-range">3.5 &ndash; 5.0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group 3: Oxygenation (collapsible) -->
+            <div class="input-section collapsible" id="grp-oxygenation">
+                <div class="input-section-label toggle-section" onclick="toggleSection('grp-oxygenation')">
+                    <span class="section-arrow">&#9654;</span> Oxygenation
+                    <span class="optional">PaO2, FiO2, Age</span>
+                </div>
+                <div class="section-body">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label for="po2" id="po2-label">PaO2 (mmHg)</label>
+                            <input type="number" id="po2" step="1" min="10" max="600" placeholder="">
+                            <span class="normal-range">80 &ndash; 100</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="fio2">FiO2</label>
+                            <input type="number" id="fio2" step="0.01" min="0.21" max="1.0" placeholder="0.21">
+                            <span class="normal-range">Room air: 0.21</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="age">Age (years)</label>
+                            <input type="number" id="age" step="1" min="1" max="120" placeholder="">
+                            <span class="normal-range">For expected A-a</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Group 4: Additional Labs (collapsible) -->
+            <div class="input-section collapsible" id="grp-labs">
+                <div class="input-section-label toggle-section" onclick="toggleSection('grp-labs')">
+                    <span class="section-arrow">&#9654;</span> Additional Labs
+                    <span class="optional">Lactate, Glucose, BUN, Osmolality</span>
+                </div>
+                <div class="section-body">
+                    <div class="input-grid">
+                        <div class="input-group">
+                            <label for="lactate">Lactate</label>
+                            <input type="number" id="lactate" step="1" min="0" max="300" placeholder="">
+                            <div class="unit-slider-wrap">
+                                <div class="unit-slider" id="lactate-slider" data-pos="0">
+                                    <div class="unit-track"><div class="unit-highlight"></div></div>
+                                    <div class="unit-opt active" onclick="setUnit('lactate','mgdl')">mg/dL</div>
+                                    <div class="unit-opt" onclick="setUnit('lactate','mmol')">mmol/L</div>
+                                </div>
+                                <span class="normal-range" id="lactate-range">&lt; 18</span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="glucose">Glucose</label>
+                            <input type="number" id="glucose" step="1" min="10" max="1500" placeholder="">
+                            <div class="unit-slider-wrap">
+                                <div class="unit-slider" id="glucose-slider" data-pos="0">
+                                    <div class="unit-track"><div class="unit-highlight"></div></div>
+                                    <div class="unit-opt active" onclick="setUnit('glucose','mgdl')">mg/dL</div>
+                                    <div class="unit-opt" onclick="setUnit('glucose','mmol')">mmol/L</div>
+                                </div>
+                                <span class="normal-range" id="glucose-range">70 &ndash; 100</span>
+                            </div>
+                        </div>
+                        <div class="input-group">
+                            <label for="bun">BUN (mg/dL)</label>
+                            <input type="number" id="bun" step="1" min="1" max="200" placeholder="">
+                            <span class="normal-range">7 &ndash; 20</span>
+                        </div>
+                        <div class="input-group">
+                            <label for="measOsm">Measured Osm (mOsm/kg)</label>
+                            <input type="number" id="measOsm" step="1" min="200" max="500" placeholder="">
+                            <span class="normal-range">275 &ndash; 295</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Clinical Onset (slider) -->
+            <div class="input-section">
+                <div class="input-section-label">Clinical Onset</div>
+                <div class="acuity-slider-wrap">
+                    <div class="acuity-slider" id="acuity-slider">
+                        <div class="acuity-track">
+                            <div class="acuity-highlight" id="acuity-highlight"></div>
+                        </div>
+                        <div class="acuity-option active" data-acuity="unknown" onclick="setAcuity('unknown')">Unknown</div>
+                        <div class="acuity-option" data-acuity="acute" onclick="setAcuity('acute')">Acute <span class="acuity-sub">hours</span></div>
+                        <div class="acuity-option" data-acuity="chronic" onclick="setAcuity('chronic')">Chronic <span class="acuity-sub">days+</span></div>
+                    </div>
+                </div>
+            </div>
+            <input type="hidden" id="acuity" value="unknown">
+
+            <div class="btn-row">
+                <button class="btn-primary" onclick="interpret()">Interpret</button>
+                <button class="btn-secondary" onclick="clearAll()">Clear</button>
+            </div>
+        </section>
+
+        <!-- Advanced Settings Toggle -->
+        <div class="advanced-toggle" onclick="toggleAdvanced()">
+            <span id="adv-arrow">&#9654;</span> Advanced Settings
+        </div>
+        <section class="card hidden" id="advanced-panel">
+            <p class="adv-desc">Adjust compensation formulas where medical literature varies.</p>
+            <div class="adv-grid">
+                <div class="adv-item">
+                    <label>Chronic Resp Acidosis: HCO3 rise per 10 mmHg</label>
+                    <div class="adv-options">
+                        <label class="adv-radio"><input type="radio" name="chronRespAcid" value="3.5" onchange="updateAdvanced()"> 3.5
+                            <a href="https://litfl.com/respiratory-acidosis/" target="_blank" class="adv-src">LITFL</a></label>
+                        <label class="adv-radio"><input type="radio" name="chronRespAcid" value="4" checked onchange="updateAdvanced()"> 4.0
+                            <a href="https://www.ncbi.nlm.nih.gov/books/NBK482430/" target="_blank" class="adv-src">StatPearls</a></label>
+                    </div>
+                </div>
+                <div class="adv-item">
+                    <label>Delta Ratio: lower threshold for pure HAGMA</label>
+                    <div class="adv-options">
+                        <label class="adv-radio"><input type="radio" name="drLower" value="0.8" onchange="updateAdvanced()"> 0.8
+                            <a href="https://www.ncbi.nlm.nih.gov/books/NBK539753/" target="_blank" class="adv-src">StatPearls</a></label>
+                        <label class="adv-radio"><input type="radio" name="drLower" value="1.0" checked onchange="updateAdvanced()"> 1.0
+                            <a href="https://litfl.com/delta-ratio/" target="_blank" class="adv-src">LITFL</a></label>
+                    </div>
+                </div>
+                <div class="adv-item">
+                    <label>Expected A-a gradient formula</label>
+                    <div class="adv-options">
+                        <label class="adv-radio"><input type="radio" name="aaFormula" value="linear" checked onchange="updateAdvanced()"> 2.5 + 0.21 &times; age
+                            <a href="https://litfl.com/a-a-gradient/" target="_blank" class="adv-src">LITFL</a></label>
+                        <label class="adv-radio"><input type="radio" name="aaFormula" value="quarter" onchange="updateAdvanced()"> (age + 10) / 4
+                            <a href="https://www.ncbi.nlm.nih.gov/books/NBK545153/" target="_blank" class="adv-src">StatPearls</a></label>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Results -->
+        <section class="card hidden" id="results">
+            <div class="step-header">
+                <span class="step-num">&#10003;</span>
+                <h2>Interpretation</h2>
+            </div>
+
+            <div id="summary-banner"></div>
+            <div id="calc-values" class="calc-grid"></div>
+            <div id="analysis-steps"></div>
+
+            <div id="ddx-section" class="hidden">
+                <h3>Differential Diagnosis</h3>
+                <p class="ddx-instruction">Click on diagnoses to mark them as likely or unlikely. Use the filters below to narrow the list.</p>
+                <div id="ddx-filters"></div>
+                <div id="ddx-list"></div>
+            </div>
+
+            <div id="compensation-section"></div>
+
+            <div class="share-row">
+                <button class="btn-share" onclick="copyLink()">Copy Link</button>
+                <button class="btn-share" onclick="copyText()">Copy as Text</button>
+            </div>
+
+            <div class="references">
+                <h4>References</h4>
+                <ul>
+                    <li><a href="https://litfl.com/acid-base/" target="_blank">LITFL &mdash; Acid-Base</a></li>
+                    <li><a href="https://litfl.com/arterial-blood-gas-abg/" target="_blank">LITFL &mdash; ABG</a></li>
+                    <li><a href="https://litfl.com/metabolic-acidosis/" target="_blank">LITFL &mdash; Metabolic Acidosis</a></li>
+                    <li><a href="https://litfl.com/metabolic-alkalosis/" target="_blank">LITFL &mdash; Metabolic Alkalosis</a></li>
+                    <li><a href="https://litfl.com/respiratory-acidosis/" target="_blank">LITFL &mdash; Respiratory Acidosis</a></li>
+                    <li><a href="https://litfl.com/respiratory-alkalosis/" target="_blank">LITFL &mdash; Respiratory Alkalosis</a></li>
+                    <li><a href="https://litfl.com/anion-gap/" target="_blank">LITFL &mdash; Anion Gap</a></li>
+                    <li><a href="https://litfl.com/delta-ratio/" target="_blank">LITFL &mdash; Delta Ratio</a></li>
+                    <li><a href="https://litfl.com/vbg-versus-abg/" target="_blank">LITFL &mdash; VBG vs ABG</a></li>
+                </ul>
+            </div>
+        </section>
+
+        <footer>
+            <p><strong>Disclaimer:</strong> This tool is for educational purposes only. Clinical decisions should always be made by qualified healthcare professionals in the context of the individual patient.</p>
+            <p>Algorithm based on <a href="https://litfl.com/acid-base/" target="_blank">LITFL Acid-Base</a> resources.</p>
+        </footer>
+    </div>
+    <script src="interpreter.js"></script>
+</body>
+</html>

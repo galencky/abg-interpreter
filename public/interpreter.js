@@ -14,7 +14,7 @@ let advancedSettings = {
 
 // ---- Unit toggle state ----
 let unitState = {
-    lactate: 'mgdl',   // 'mgdl' (left) or 'mmol' (right)
+    lactate: 'mmol',   // 'mgdl' (left) or 'mmol' (right)
     glucose: 'mgdl',   // 'mgdl' (left) or 'mmol' (right)
 };
 
@@ -872,21 +872,24 @@ function interpret() {
                 na: !isNaN(v.na) ? v.na : null,
                 cl: !isNaN(v.cl) ? v.cl : null,
                 albumin: !isNaN(v.albumin) ? v.albumin : null,
-                lactate: !isNaN(v.lactate) ? v.lactate : null,
-                glucose: !isNaN(v.glucose) ? v.glucose : null,
-                bun: !isNaN(v.bun) ? v.bun : null,
                 pao2: !isNaN(v.po2) ? v.po2 : null,
                 fio2: !isNaN(v.fio2) ? v.fio2 : null,
                 age: !isNaN(v.age) ? v.age : null,
+                lactate: !isNaN(v.lactate) ? v.lactate : null,
+                glucose: !isNaN(v.glucose) ? v.glucose : null,
+                bun: !isNaN(v.bun) ? v.bun : null,
+                meas_osm: !isNaN(v.measOsm) ? v.measOsm : null,
+                acuity: v.acuity || 'unknown',
                 primary_disorder: primaryDisorders ? primaryDisorders.join(', ') : '',
                 anion_gap: !isNaN(useAG) ? useAG : null,
                 delta_ratio: deltaRatio !== null && deltaRatio !== Infinity ? deltaRatio : null,
                 schema_v: 1,
                 timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
                 browser_lang: navigator.language,
-                device_type: window.innerWidth < 768 ? 'mobile' : 'desktop',
+                device_type: /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile/tablet' : 'desktop',
                 fields_filled: fieldsFilled,
                 diff_dx_count: activeDDx.length,
+                diff_dx_details: window._lastScoredDDx || [],
                 interpret_count: iCount
             })
         }).catch(() => {});
@@ -973,6 +976,7 @@ let manualDDxStates = {};
 function renderDDxItems(activeDDx, ctx) {
     const ddxList = document.getElementById('ddx-list');
     let html = '';
+    window._lastScoredDDx = [];
 
     activeDDx.forEach(group => {
         const items = DDX[group.type] || [];
@@ -990,6 +994,9 @@ function renderDDxItems(activeDDx, ctx) {
             const id = `ddx-${group.type}-${item.name.replace(/[^a-zA-Z0-9]/g, '')}`;
             const manual = manualDDxStates[id];
             const cls = manual || (score > 0 ? 'likely' : score < 0 ? 'unlikely' : '');
+            
+            window._lastScoredDDx.push({ name: item.name, category: item.category, score: score, status: cls });
+            
             return { item, score, reasons, id, cls };
         });
 

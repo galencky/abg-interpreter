@@ -851,6 +851,46 @@ function interpret() {
         ddxSection.classList.remove('hidden');
         renderDDx(activeDDx, v);
     }
+
+    // ---- Telemetry Submission ----
+    try {
+        let fieldsFilled = 0;
+        const allKeys = ['pH', 'pco2', 'hco3', 'na', 'cl', 'albumin', 'lactate', 'glucose', 'bun', 'po2', 'fio2', 'age'];
+        allKeys.forEach(k => { if (!isNaN(v[k])) fieldsFilled++; });
+        
+        let iCount = parseInt(localStorage.getItem('interpret_count') || '0', 10) + 1;
+        localStorage.setItem('interpret_count', iCount);
+
+        fetch('/api/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                sample_type: v.isVBG ? 'vbg' : 'abg',
+                ph: v.pH,
+                pco2: v.pco2,
+                hco3: v.hco3,
+                na: !isNaN(v.na) ? v.na : null,
+                cl: !isNaN(v.cl) ? v.cl : null,
+                albumin: !isNaN(v.albumin) ? v.albumin : null,
+                lactate: !isNaN(v.lactate) ? v.lactate : null,
+                glucose: !isNaN(v.glucose) ? v.glucose : null,
+                bun: !isNaN(v.bun) ? v.bun : null,
+                pao2: !isNaN(v.po2) ? v.po2 : null,
+                fio2: !isNaN(v.fio2) ? v.fio2 : null,
+                age: !isNaN(v.age) ? v.age : null,
+                primary_disorder: primaryDisorders ? primaryDisorders.join(', ') : '',
+                anion_gap: !isNaN(useAG) ? useAG : null,
+                delta_ratio: deltaRatio !== null && deltaRatio !== Infinity ? deltaRatio : null,
+                schema_v: 1,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                browser_lang: navigator.language,
+                device_type: window.innerWidth < 768 ? 'mobile' : 'desktop',
+                fields_filled: fieldsFilled,
+                diff_dx_count: activeDDx.length,
+                interpret_count: iCount
+            })
+        }).catch(() => {});
+    } catch (e) {}
 }
 
 function renderDDx(activeDDx, values) {

@@ -861,52 +861,66 @@ function interpret() {
         let iCount = parseInt(localStorage.getItem('interpret_count') || '0', 10) + 1;
         localStorage.setItem('interpret_count', iCount);
 
+        // Build DDx details array safely — independent from UI rendering
+        let ddxDetails = [];
+        try {
+            activeDDx.forEach(group => {
+                const items = DDX[group.type] || [];
+                items.forEach(item => {
+                    const { score } = scoreDDx(item, {}, v);
+                    const cls = score > 0 ? 'likely' : score < 0 ? 'unlikely' : 'neutral';
+                    ddxDetails.push({ name: item.name, category: item.category, score: score, status: cls });
+                });
+            });
+        } catch (ddxErr) {
+            console.error('[Telemetry] DDx scoring error:', ddxErr);
+            ddxDetails = [{ error: ddxErr.message }];
+        }
+
+        const telemetryPayload = {
+            sample_type: v.isVBG ? 'vbg' : 'abg',
+            ph: v.pH,
+            pco2: v.pco2,
+            hco3: v.hco3,
+            na: !isNaN(v.na) ? v.na : null,
+            cl: !isNaN(v.cl) ? v.cl : null,
+            albumin: !isNaN(v.albumin) ? v.albumin : null,
+            pao2: !isNaN(v.po2) ? v.po2 : null,
+            fio2: !isNaN(v.fio2) ? v.fio2 : null,
+            age: !isNaN(v.age) ? v.age : null,
+            lactate: !isNaN(v.lactate) ? v.lactate : null,
+            glucose: !isNaN(v.glucose) ? v.glucose : null,
+            bun: !isNaN(v.bun) ? v.bun : null,
+            meas_osm: !isNaN(v.measOsm) ? v.measOsm : null,
+            acuity: v.acuity || 'unknown',
+            primary_disorder: primaryDisorders ? primaryDisorders.join(', ') : '',
+            anion_gap: !isNaN(useAG) ? useAG : null,
+            delta_ratio: deltaRatio !== null && deltaRatio !== Infinity ? deltaRatio : null,
+            schema_v: 2,
+            telemetry_v: '2026-03-31a',
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            browser_lang: navigator.language,
+            device_type: /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile/tablet' : 'desktop',
+            fields_filled: fieldsFilled,
+            diff_dx_count: activeDDx.length,
+            diff_dx_details: ddxDetails,
+            interpret_count: iCount
+        };
+
+        console.log('[Telemetry] Sending payload:', telemetryPayload);
+
         fetch('/api/submit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                sample_type: v.isVBG ? 'vbg' : 'abg',
-                ph: v.pH,
-                pco2: v.pco2,
-                hco3: v.hco3,
-                na: !isNaN(v.na) ? v.na : null,
-                cl: !isNaN(v.cl) ? v.cl : null,
-                albumin: !isNaN(v.albumin) ? v.albumin : null,
-                pao2: !isNaN(v.po2) ? v.po2 : null,
-                fio2: !isNaN(v.fio2) ? v.fio2 : null,
-                age: !isNaN(v.age) ? v.age : null,
-                lactate: !isNaN(v.lactate) ? v.lactate : null,
-                glucose: !isNaN(v.glucose) ? v.glucose : null,
-                bun: !isNaN(v.bun) ? v.bun : null,
-                meas_osm: !isNaN(v.measOsm) ? v.measOsm : null,
-                acuity: v.acuity || 'unknown',
-                primary_disorder: primaryDisorders ? primaryDisorders.join(', ') : '',
-                anion_gap: !isNaN(useAG) ? useAG : null,
-                delta_ratio: deltaRatio !== null && deltaRatio !== Infinity ? deltaRatio : null,
-                schema_v: 1,
-                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                browser_lang: navigator.language,
-                device_type: /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile/tablet' : 'desktop',
-                fields_filled: fieldsFilled,
-                diff_dx_count: activeDDx.length,
-                diff_dx_details: (() => {
-                    let ddxData = [];
-                    activeDDx.forEach(group => {
-                        const items = DDX[group.type] || [];
-                        items.forEach(item => {
-                            const { score } = scoreDDx(item, {}, v);
-                            const id = `ddx-${group.type}-${item.name.replace(/[^a-zA-Z0-9]/g, '')}`;
-                            const manual = manualDDxStates[id];
-                            const cls = manual || (score > 0 ? 'likely' : score < 0 ? 'unlikely' : '');
-                            ddxData.push({ name: item.name, category: item.category, score: score, status: cls });
-                        });
-                    });
-                    return ddxData;
-                })(),
-                interpret_count: iCount
-            })
-        }).catch(() => {});
-    } catch (e) {}
+            body: JSON.stringify(telemetryPayload)
+        }).then(r => {
+            if (!r.ok) console.error('[Telemetry] Server returned', r.status);
+        }).catch(err => {
+            console.error('[Telemetry] Network error:', err);
+        });
+    } catch (e) {
+        console.error('[Telemetry] Fatal error building payload:', e);
+    }
 }
 
 function renderDDx(activeDDx, values) {

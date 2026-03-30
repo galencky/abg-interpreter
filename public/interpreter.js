@@ -879,13 +879,13 @@ function interpret() {
 
         const telemetryPayload = {
             sample_type: v.isVBG ? 'vbg' : 'abg',
-            ph: v.pH,
-            pco2: v.pco2,
-            hco3: v.hco3,
+            ph: parseFloat(document.getElementById('pH').value) || null,
+            pco2: parseFloat(document.getElementById('pco2').value) || null,
+            hco3: parseFloat(document.getElementById('hco3').value) || null,
             na: !isNaN(v.na) ? v.na : null,
             cl: !isNaN(v.cl) ? v.cl : null,
-            albumin: !isNaN(v.albumin) ? v.albumin : null,
-            pao2: !isNaN(v.po2) ? v.po2 : null,
+            albumin: !isNaN(v.albumin_display) ? v.albumin_display : null,
+            pao2: parseFloat(document.getElementById('po2').value) || null,
             fio2: !isNaN(v.fio2) ? v.fio2 : null,
             age: !isNaN(v.age) ? v.age : null,
             lactate: !isNaN(v.lactate) ? v.lactate : null,

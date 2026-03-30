@@ -12,30 +12,77 @@ A systematic acid-base analysis tool with interactive differential diagnosis.
 - Oxygenation assessment (A-a gradient, PaO2/FiO2 ratio)
 - Configurable advanced settings for alternative compensation formulas
 - Shareable results via URL parameters or plain text
-- **Built-in Telemetry:** Automatically submits anonymized diagnostic payloads to a Neon Serverless Postgres database using a serverless function (`/api/submit`).
+- **Built-in Telemetry:** Each interpretation automatically submits an anonymized JSONB payload (clinical inputs, calculated results, and granular differential diagnosis scores) to a Neon Serverless Postgres database via the `/api/submit` serverless function. The telemetry schema is entirely flexible — no database migrations are needed when the frontend evolves.
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Vanilla HTML / CSS / JS (no framework) |
+| Backend | Vercel Serverless Function (Node.js ESM) |
+| Database | Neon Serverless Postgres (JSONB) |
+| Hosting | Vercel |
+| SDK | `@neondatabase/serverless` |
+
+## Project Structure
+
+```
+abg-interpreter/
+├── public/                   # Static frontend (served by Vercel)
+│   ├── index.html            # UI structure, input groups, results
+│   ├── style.css             # Dark theme, responsive layout
+│   └── interpreter.js        # Clinical logic, DDx, scoring, telemetry
+├── api/
+│   └── submit.js             # Serverless function → Neon Postgres
+├── vercel.json               # Rewrites, cache-control headers
+├── package.json              # Dependencies (@neondatabase/serverless)
+├── DOCUMENTATION.md          # Full technical documentation
+└── README.md
+```
 
 ## Deployment
 
 This app is optimized for seamless deployment on **Vercel**:
-- The frontend static files are located in `/public`.
-- The backend telemetry endpoint is a Node.js Serverless Function at `/api/submit`.
-- The `vercel.json` rewrite routes API calls and pages seamlessly without CORS issues.
-- To enable the telemetry database, add the native Neon integration to your Vercel project to automatically populate the `DATABASE_URL` or `POSTGRES_URL` connection strings.
+
+1. **Import** your GitHub repository in the Vercel dashboard.
+2. **Add the Neon integration** from the Vercel Marketplace (Settings → Integrations → Neon). This automatically populates the `DATABASE_URL` environment variable.
+3. **Create the table** — run this SQL once in the Neon SQL Editor:
+   ```sql
+   CREATE TABLE IF NOT EXISTS submissions (
+     id SERIAL PRIMARY KEY,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     country VARCHAR(10),
+     region VARCHAR(10),
+     payload JSONB
+   );
+   ```
+4. **Deploy** — Vercel auto-deploys on every `git push`.
+
+### Environment Variables
+
+| Variable | Source | Purpose |
+|----------|--------|---------|
+| `DATABASE_URL` | Neon integration (auto) | Primary connection string |
+| `POSTGRES_URL` | Fallback (legacy) | Used if `DATABASE_URL` is absent |
+
+### Cache Control
+
+`vercel.json` sets `Cache-Control: public, max-age=0, must-revalidate` on all `.js` and `.css` files to prevent stale assets from being served by the CDN.
 
 ## References
 
-- [LITFL - Acid-Base](https://litfl.com/acid-base/)
-- [LITFL - ABG Interpretation](https://litfl.com/arterial-blood-gas-abg/)
-- [LITFL - Metabolic Acidosis](https://litfl.com/metabolic-acidosis/)
-- [LITFL - Metabolic Alkalosis](https://litfl.com/metabolic-alkalosis/)
-- [LITFL - Respiratory Acidosis](https://litfl.com/respiratory-acidosis/)
-- [LITFL - Respiratory Alkalosis](https://litfl.com/respiratory-alkalosis/)
-- [LITFL - Anion Gap](https://litfl.com/anion-gap/)
-- [LITFL - Delta Ratio](https://litfl.com/delta-ratio/)
-- [LITFL - VBG vs ABG](https://litfl.com/vbg-versus-abg/)
-- [StatPearls - Arterial Blood Gas](https://www.ncbi.nlm.nih.gov/books/NBK482430/)
-- [StatPearls - Anion Gap](https://www.ncbi.nlm.nih.gov/books/NBK539753/)
-- [StatPearls - A-a Gradient](https://www.ncbi.nlm.nih.gov/books/NBK545153/)
+- [LITFL — Acid-Base](https://litfl.com/acid-base/)
+- [LITFL — ABG Interpretation](https://litfl.com/arterial-blood-gas-abg/)
+- [LITFL — Metabolic Acidosis](https://litfl.com/metabolic-acidosis/)
+- [LITFL — Metabolic Alkalosis](https://litfl.com/metabolic-alkalosis/)
+- [LITFL — Respiratory Acidosis](https://litfl.com/respiratory-acidosis/)
+- [LITFL — Respiratory Alkalosis](https://litfl.com/respiratory-alkalosis/)
+- [LITFL — Anion Gap](https://litfl.com/anion-gap/)
+- [LITFL — Delta Ratio](https://litfl.com/delta-ratio/)
+- [LITFL — VBG vs ABG](https://litfl.com/vbg-versus-abg/)
+- [StatPearls — Arterial Blood Gas](https://www.ncbi.nlm.nih.gov/books/NBK482430/)
+- [StatPearls — Anion Gap](https://www.ncbi.nlm.nih.gov/books/NBK539753/)
+- [StatPearls — A-a Gradient](https://www.ncbi.nlm.nih.gov/books/NBK545153/)
 
 ## Disclaimer
 

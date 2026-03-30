@@ -113,14 +113,14 @@
                     <div class="input-grid">
                         <div class="input-group">
                             <label for="lactate">Lactate</label>
-                            <input type="number" id="lactate" step="0.1" min="0" max="300" placeholder="">
+                            <input type="number" id="lactate" step="1" min="0" max="300" placeholder="">
                             <div class="unit-slider-wrap">
-                                <div class="unit-slider" id="lactate-slider" data-pos="1">
+                                <div class="unit-slider" id="lactate-slider" data-pos="0">
                                     <div class="unit-track"><div class="unit-highlight"></div></div>
-                                    <div class="unit-opt" onclick="setUnit('lactate','mgdl')">mg/dL</div>
-                                    <div class="unit-opt active" onclick="setUnit('lactate','mmol')">mmol/L</div>
+                                    <div class="unit-opt active" onclick="setUnit('lactate','mgdl')">mg/dL</div>
+                                    <div class="unit-opt" onclick="setUnit('lactate','mmol')">mmol/L</div>
                                 </div>
-                                <span class="normal-range" id="lactate-range">&lt; 2</span>
+                                <span class="normal-range" id="lactate-range">&lt; 18</span>
                             </div>
                         </div>
                         <div class="input-group">
@@ -255,6 +255,6 @@
             <p class="author">Created by Kuan-Yuan Chen, M.D. &mdash; <a href="mailto:galen147258369@gmail.com">galen147258369@gmail.com</a> &mdash; Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a></p>
         </footer>
     </div>
-    <script src="interpreter.js?v=20260331a"></script>
+    <script src="interpreter.js?v=20260331b"></script>
 </body>
 </html>

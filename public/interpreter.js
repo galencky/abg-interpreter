@@ -14,7 +14,7 @@ let advancedSettings = {
 
 // ---- Unit toggle state ----
 let unitState = {
-    lactate: 'mmol',   // 'mgdl' (left) or 'mmol' (right)
+    lactate: 'mgdl',   // 'mgdl' (left) or 'mmol' (right)
     glucose: 'mgdl',   // 'mgdl' (left) or 'mmol' (right)
 };
 
@@ -897,7 +897,7 @@ function interpret() {
             anion_gap: !isNaN(useAG) ? useAG : null,
             delta_ratio: deltaRatio !== null && deltaRatio !== Infinity ? deltaRatio : null,
             schema_v: 2,
-            telemetry_v: '2026-03-31a',
+            telemetry_v: '2026-03-31b',
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             browser_lang: navigator.language,
             device_type: /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile/tablet' : 'desktop',
@@ -1094,16 +1094,17 @@ function scoreDDx(item, ctx, values) {
     if (ctx.anxiety && c.anxiety) add(2, 'anxiety/pain');
     if (ctx.obesity && c.obesity) add(2, 'obesity');
 
-    // Tag-based matching
+    // Tag-based matching (guard against missing tags array)
+    const tags = item.tags || [];
     if (ctx.pregnancy && item.name === 'Pregnancy') add(2, 'pregnancy');
     if (ctx.pregnancy && c.pregnancy) add(2, 'pregnancy');
-    if (ctx.sepsis && (item.tags.includes('sepsis') || item.tags.includes('infection'))) add(1, 'sepsis context');
+    if (ctx.sepsis && (tags.includes('sepsis') || tags.includes('infection'))) add(1, 'sepsis context');
     if (ctx.sepsis && c.sepsis) add(1, 'sepsis context');
     if (ctx.ingestion && c.ingestion) add(2, 'ingestion/overdose');
-    if (ctx.ingestion && !c.ingestion && (item.tags.includes('drug') || item.tags.includes('toxic alcohol'))) add(1, 'ingestion context');
-    if (ctx.hypotension && (item.tags.includes('shock') || item.tags.includes('sepsis'))) add(1, 'shock/hypotension');
-    if (ctx.liver && (item.tags.includes('liver') || c.liver)) add(2, 'liver disease');
-    if (ctx.surgery && (item.tags.includes('surgical') || c.surgery)) add(1, 'surgical history');
+    if (ctx.ingestion && !c.ingestion && (tags.includes('drug') || tags.includes('toxic alcohol'))) add(1, 'ingestion context');
+    if (ctx.hypotension && (tags.includes('shock') || tags.includes('sepsis'))) add(1, 'shock/hypotension');
+    if (ctx.liver && (tags.includes('liver') || c.liver)) add(2, 'liver disease');
+    if (ctx.surgery && (tags.includes('surgical') || c.surgery)) add(1, 'surgical history');
 
     return { score, reasons };
 }

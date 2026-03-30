@@ -31,9 +31,10 @@ User Input → getValues() → validate() → interpret() → Render Results
 ```
 
 ### Telemetry / Backend Integration
-At the end of the `interpret()` function, an asynchronous `fetch` POST request pushes diagnostic parameters and calculated results to `/api/submit`. 
-- **Vercel Postgres:** The endpoint validates allowed column schema, reads geo-location via Vercel headers, and executes an `INSERT INTO` statement. 
-- **Graceful Degradation:** The fetch request is wrapped in a `.catch(()=>{})`. If the POST fails (e.g. adblocker, no internet), the client UI continues functioning perfectly.
+At the end of the `interpret()` function, an asynchronous `fetch` POST request pushes a full JSONB diagnostic payload to `/api/submit`. 
+- **Neon Serverless Postgres:** The endpoint uses `@neondatabase/serverless` to insert the entire payload as a single JSONB column. The database schema is intentionally minimal (`id`, `created_at`, `country`, `region`, `payload JSONB`) — all clinical data lives inside `payload`, so the frontend can add new fields without requiring database migrations.
+- **Telemetry Payload:** Includes clinical inputs, calculated results (AG, delta ratio), full differential diagnosis scores (every DDx item with name, category, score, status), device metadata, and a schema version tag.
+- **Graceful Degradation:** The fetch request is wrapped in error handling. If the POST fails (e.g. adblocker, no internet), the client UI continues functioning perfectly. Errors are logged to the browser console with `[Telemetry]` prefix for debugging.
 
 ---
 

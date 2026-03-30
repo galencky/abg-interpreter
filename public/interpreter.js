@@ -845,6 +845,7 @@ function interpret() {
         }
     }
 
+    window._lastScoredDDx = [];
     if (activeDDx.length === 0) {
         ddxSection.classList.add('hidden');
     } else {

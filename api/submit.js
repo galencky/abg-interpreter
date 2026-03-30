@@ -1,40 +1,28 @@
 import { sql } from '@vercel/postgres'
 
-const ALLOWED = [
-  'sample_type', 'ph', 'pco2', 'hco3', 'na', 'cl', 'albumin',
-  'lactate', 'glucose', 'bun', 'pao2', 'fio2', 'age',
-  'primary_disorder', 'compensation', 'anion_gap',
-  'delta_ratio', 'device_type', 'browser', 'os',
-  'browser_lang', 'timezone', 'referrer_domain',
-  'time_to_submit_ms', 'interpret_count',
-  'used_share', 'used_copy_text', 'used_vbg_convert',
-  'fields_filled', 'diff_dx_count', 'schema_v'
-]
-
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end()
 
   try {
-    const data = req.body
-    const clean = {}
-    for (const key of ALLOWED) {
-      if (data[key] !== undefined) clean[key] = data[key]
+    const payload = req.body || {}
+
+    // Security check: Prevent massive JSON payload spams
+    const payloadString = JSON.stringify(payload)
+    if (payloadString.length > 50000) {
+      return res.status(413).json({ error: 'Payload too large' })
     }
 
-    // Geo from Vercel headers
-    clean.country = req.headers['x-vercel-ip-country'] || null
-    clean.region = req.headers['x-vercel-ip-country-region'] || null
+    // Capture geolocation from Vercel infrastructure headers
+    const country = req.headers['x-vercel-ip-country'] || null
+    const region = req.headers['x-vercel-ip-country-region'] || null
 
-    const cols = Object.keys(clean)
-    const vals = Object.values(clean)
-    const placeholders = cols.map((_, i) => `$${i + 1}`)
-
-    if (cols.length > 0) {
-      await sql.query(
-        `INSERT INTO submissions (${cols.join(',')}) VALUES (${placeholders.join(',')})`,
-        vals
-      )
-    }
+    // We store the exact unaltered JSON inside the payload column.
+    // This allows the frontend to mutate or send new data arrays/columns
+    // seamlessly without needing to alter the database schema or api handler.
+    await sql.query(
+      `INSERT INTO submissions (country, region, payload) VALUES ($1, $2, $3)`,
+      [country, region, payloadString]
+    )
 
     res.json({ ok: true })
   } catch (err) {

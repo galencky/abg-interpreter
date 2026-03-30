@@ -2,21 +2,26 @@
 
 ## Overview
 
-A static web app (HTML/CSS/JS, no backend) for systematic arterial and venous blood gas interpretation with interactive differential diagnosis. All clinical logic runs client-side in `interpreter.js`.
+A web application designed for systematic arterial and venous blood gas interpretation with interactive differential diagnosis. The core clinical logic runs entirely client-side, while a lightweight Vercel serverless function handles telemetry.
 
-**Files:**
-- `index.html` (~260 lines) — UI structure, input groups, results container
-- `style.css` (~1090 lines) — Dark theme, responsive layout, component styles
-- `interpreter.js` (~1140 lines) — All clinical logic, DDx database, scoring, rendering
+**Frontend Files (`/public`):**
+- `index.html` — UI structure, input groups, results container
+- `style.css` — Dark theme, responsive layout, component styles
+- `interpreter.js` — All clinical logic, DDx database, scoring, rendering, and background POST requests for telemetry
+
+**Backend & Config:**
+- `api/submit.js` — Vercel serverless function to write anonymized telemetry to Vercel Postgres
+- `vercel.json` — URL rewrite rules to map `/api` and serve static files from `/public` seamlessly
+- `package.json` — Defines backend dependencies (`@vercel/postgres`)
 
 ---
 
 ## Architecture
 
 ```
-User Input → getValues() → validate() → interpret() → Render Results
-                ↓                            ↓
-          VBG conversion              6-step algorithm
+User Input → getValues() → validate() → interpret() → Render Results 
+                ↓                            ↓               ↓
+          VBG conversion              6-step algorithm      (Async /api/submit) → Vercel Postgres
           Unit conversion              ↓
                                   DDx activation → renderDDx() → renderDDxItems()
                                                                       ↓
@@ -24,6 +29,11 @@ User Input → getValues() → validate() → interpret() → Render Results
                                                                       ↓
                                                               Sort & display
 ```
+
+### Telemetry / Backend Integration
+At the end of the `interpret()` function, an asynchronous `fetch` POST request pushes diagnostic parameters and calculated results to `/api/submit`. 
+- **Vercel Postgres:** The endpoint validates allowed column schema, reads geo-location via Vercel headers, and executes an `INSERT INTO` statement. 
+- **Graceful Degradation:** The fetch request is wrapped in a `.catch(()=>{})`. If the POST fails (e.g. adblocker, no internet), the client UI continues functioning perfectly.
 
 ---
 

@@ -12,6 +12,15 @@ A systematic acid-base analysis tool with interactive differential diagnosis.
 - Oxygenation assessment (A-a gradient, PaO2/FiO2 ratio)
 - Configurable advanced settings for alternative compensation formulas
 - Shareable results via URL parameters or plain text
+- **Built-in Telemetry:** Automatically submits anonymized diagnostic payloads to a Vercel Postgres/Neon database using a serverless function (`/api/submit`).
+
+## Deployment
+
+This app is optimized for seamless deployment on **Vercel**:
+- The frontend static files are located in `/public`.
+- The backend telemetry endpoint is a Node.js Serverless Function at `/api/submit`.
+- The `vercel.json` rewrite routes API calls and pages seamlessly without CORS issues.
+- To enable the telemetry database, link a Vercel Postgres database in the Vercel dashboard and the `POSTGRES_URL` will be automatically populated.
 
 ## References
 

@@ -845,7 +845,6 @@ function interpret() {
         }
     }
 
-    window._lastScoredDDx = [];
     if (activeDDx.length === 0) {
         ddxSection.classList.add('hidden');
     } else {
@@ -890,7 +889,20 @@ function interpret() {
                 device_type: /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile/tablet' : 'desktop',
                 fields_filled: fieldsFilled,
                 diff_dx_count: activeDDx.length,
-                diff_dx_details: window._lastScoredDDx || [],
+                diff_dx_details: (() => {
+                    let ddxData = [];
+                    activeDDx.forEach(group => {
+                        const items = DDX[group.type] || [];
+                        items.forEach(item => {
+                            const { score } = scoreDDx(item, {}, v);
+                            const id = `ddx-${group.type}-${item.name.replace(/[^a-zA-Z0-9]/g, '')}`;
+                            const manual = manualDDxStates[id];
+                            const cls = manual || (score > 0 ? 'likely' : score < 0 ? 'unlikely' : '');
+                            ddxData.push({ name: item.name, category: item.category, score: score, status: cls });
+                        });
+                    });
+                    return ddxData;
+                })(),
                 interpret_count: iCount
             })
         }).catch(() => {});
@@ -977,7 +989,6 @@ let manualDDxStates = {};
 function renderDDxItems(activeDDx, ctx) {
     const ddxList = document.getElementById('ddx-list');
     let html = '';
-    window._lastScoredDDx = [];
 
     activeDDx.forEach(group => {
         const items = DDX[group.type] || [];
@@ -995,8 +1006,6 @@ function renderDDxItems(activeDDx, ctx) {
             const id = `ddx-${group.type}-${item.name.replace(/[^a-zA-Z0-9]/g, '')}`;
             const manual = manualDDxStates[id];
             const cls = manual || (score > 0 ? 'likely' : score < 0 ? 'unlikely' : '');
-            
-            window._lastScoredDDx.push({ name: item.name, category: item.category, score: score, status: cls });
             
             return { item, score, reasons, id, cls };
         });

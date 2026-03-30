@@ -7,7 +7,7 @@ A web application designed for systematic arterial and venous blood gas interpre
 **Frontend Files (`/public`):**
 - `index.html` — UI structure, input groups, results container
 - `style.css` — Dark theme, responsive layout, component styles
-- `interpreter.js` — All clinical logic, DDx database, scoring, rendering, and background POST requests for telemetry
+- `interpreter.js` — All clinical logic, DDx database, scoring, rendering, and telemetry (fully commented with 10 section markers)
 
 **Backend & Config:**
 - `api/submit.js` — Vercel serverless function to write anonymized telemetry to Neon Serverless Postgres
@@ -40,7 +40,22 @@ At the end of the `interpret()` function, an asynchronous `fetch` POST request p
 
 ## Input Processing
 
-### File: `interpreter.js` lines 116–164
+### File: `interpreter.js`
+
+The file is organized into 10 clearly marked sections:
+
+| Section | Description |
+|---------|-------------|
+| 1. Global State & Settings | `sampleType`, `advancedSettings`, `unitState` |
+| 2. Unit Conversion Helpers | `getLactateMMOL()`, `getGlucoseMGDL()` |
+| 3. UI Interaction Handlers | Acuity slider, toggles, ABG/VBG switching |
+| 4. Value Getters with VBG Conversion | `getValues()` — reads DOM, applies VBG→ABG |
+| 5. Validation & Plausibility | `validate()`, `getWarnings()` (Henderson-Hasselbalch) |
+| 6. Core Calculations | AG, corrected AG, delta ratio, Winter's, compensation formulas |
+| 7. DDx Database | 63 diagnoses with tags, clinical clues, categories |
+| 8. Main Interpret Engine | `interpret()` — 5-step algorithm + oxygenation/lactate/osmolar gap |
+| 9. DDx Rendering & Scoring | `renderDDx()`, `scoreDDx()`, `renderDDxItems()` |
+| 10. Share/Copy, Toast, URL Loading | `copyLink()`, `copyText()`, `loadFromURL()` |
 
 #### `getValues()`
 Reads all form inputs and converts to internal units:
@@ -500,6 +515,12 @@ Collapsible sections use CSS `max-height` transition. Auto-expand when URL param
 4. DDx section (narrowing checkboxes + sorted diagnosis list)
 5. Share buttons (Copy Link, Copy as Text)
 6. References (LITFL links)
+
+### Footer
+1. **Send Feedback** button — styled in accent blue (placeholder link, ready for Google Sheets/Forms)
+2. **Report Bug** button — styled in warning orange (placeholder link, ready for Google Sheets/Forms)
+3. Disclaimer
+4. Author credit and license
 
 ---
 

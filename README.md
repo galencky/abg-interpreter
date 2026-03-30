@@ -1,23 +1,29 @@
 # ABG / VBG Interpreter
 
-A systematic acid-base analysis tool with interactive differential diagnosis.
+A systematic acid-base analysis tool with interactive differential diagnosis, built for clinicians and medical education.
 
+**Live App:** [abg-interpreter.vercel.app](https://abg-interpreter.vercel.app)
 **Author:** Kuan-Yuan Chen, M.D.
 
 ## Features
 
-- ABG and VBG interpretation with automatic VBG-to-ABG conversion
-- Step-by-step acid-base analysis (pH, compensation, anion gap, delta ratio, osmolar gap)
-- Interactive differential diagnosis with clinical clues and narrowing filters
-- Oxygenation assessment (A-a gradient, PaO2/FiO2 ratio)
-- Configurable advanced settings for alternative compensation formulas
-- Shareable results via URL parameters or plain text
-- **Built-in Telemetry:** Each interpretation automatically submits an anonymized JSONB payload (clinical inputs, calculated results, and granular differential diagnosis scores) to a Neon Serverless Postgres database via the `/api/submit` serverless function. The telemetry schema is entirely flexible — no database migrations are needed when the frontend evolves.
+- **ABG & VBG Interpretation** — Automatic VBG→ABG conversion (pH +0.035, PCO₂ −5.7 mmHg)
+- **5-Step Acid-Base Analysis** — pH assessment → Primary disorder → Compensation → Anion gap → Delta ratio/Delta-delta
+- **63 Differential Diagnoses** — Categorized across HAGMA, NAGMA, Metabolic Alkalosis, Respiratory Acidosis, and Respiratory Alkalosis
+- **Interactive DDx Narrowing** — Clinical context checkboxes (sepsis, renal disease, ingestion, etc.) dynamically score and sort differentials
+- **Oxygenation Assessment** — A-a gradient, P/F ratio with ARDS Berlin classification
+- **Osmolar Gap** — Calculated when Na, glucose, BUN, and measured osmolality are provided
+- **Configurable Advanced Settings** — Chronic respiratory acidosis compensation (3.5 vs 4.0), delta ratio threshold (0.8 vs 1.0), A-a gradient formula
+- **Unit Flexibility** — Lactate (mg/dL ↔ mmol/L), Glucose (mg/dL ↔ mmol/L) with real-time conversion
+- **Shareable Results** — Copy link (URL parameters) or copy as plain text for EMR documentation
+- **Henderson-Hasselbalch Consistency Check** — Warns when pH/PCO₂/HCO₃ values don't add up
+- **Telemetry** — Anonymized JSONB payloads → Neon Serverless Postgres. Captures raw inputs, preserving VBG data as-entered
+- **Feedback & Bug Reporting** — Footer buttons for user feedback (to be linked to Google Sheets/Forms)
 
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|-------|-----------| 
 | Frontend | Vanilla HTML / CSS / JS (no framework) |
 | Backend | Vercel Serverless Function (Node.js ESM) |
 | Database | Neon Serverless Postgres (JSONB) |
@@ -28,24 +34,34 @@ A systematic acid-base analysis tool with interactive differential diagnosis.
 
 ```
 abg-interpreter/
-├── public/                   # Static frontend (served by Vercel)
-│   ├── index.html            # UI structure, input groups, results
-│   ├── style.css             # Dark theme, responsive layout
-│   └── interpreter.js        # Clinical logic, DDx, scoring, telemetry
+├── public/                      # Static frontend (served by Vercel)
+│   ├── index.html               # UI structure, input groups, results panel
+│   ├── style.css                # Dark theme, responsive layout, footer buttons 
+│   └── interpreter.js           # Clinical logic engine (fully commented)
+│       ├── Section 1: Global state & settings
+│       ├── Section 2: Unit conversion helpers
+│       ├── Section 3: UI interaction handlers
+│       ├── Section 4: Value getters with VBG→ABG conversion
+│       ├── Section 5: Validation & plausibility checks 
+│       ├── Section 6: Core calculation functions
+│       ├── Section 7: Differential Diagnosis database (63 entries)
+│       ├── Section 8: Main interpret() engine (Steps 1–5)
+│       ├── Section 9: DDx rendering & scoring engine
+│       └── Section 10: Share/Copy, Toast, URL loading
 ├── api/
-│   └── submit.js             # Serverless function → Neon Postgres
-├── vercel.json               # Rewrites, cache-control headers
-├── package.json              # Dependencies (@neondatabase/serverless)
-├── DOCUMENTATION.md          # Full technical documentation
+│   └── submit.js                # Serverless function → Neon Postgres
+├── vercel.json                  # Rewrites, cache-control headers
+├── package.json                 # Dependencies (@neondatabase/serverless)
+├── DOCUMENTATION.md             # Full technical documentation
 └── README.md
 ```
 
 ## Deployment
 
-This app is optimized for seamless deployment on **Vercel**:
+This app is designed for seamless deployment on **Vercel**:
 
 1. **Import** your GitHub repository in the Vercel dashboard.
-2. **Add the Neon integration** from the Vercel Marketplace (Settings → Integrations → Neon). This automatically populates the `DATABASE_URL` environment variable.
+2. **Add the Neon integration** from Vercel Marketplace (Settings → Integrations → Neon). This auto-populates the `DATABASE_URL` env var.
 3. **Create the table** — run this SQL once in the Neon SQL Editor:
    ```sql
    CREATE TABLE IF NOT EXISTS submissions (
@@ -67,7 +83,18 @@ This app is optimized for seamless deployment on **Vercel**:
 
 ### Cache Control
 
-`vercel.json` sets `Cache-Control: public, max-age=0, must-revalidate` on all `.js` and `.css` files to prevent stale assets from being served by the CDN.
+`vercel.json` sets `Cache-Control: public, max-age=0, must-revalidate` on all `.js` and `.css` files to prevent stale CDN assets.
+
+## Testing
+
+The app has been validated against 12 clinical scenarios:
+
+| Category | Cases Tested |
+|----------|-------------|
+| **Core** | Normal ABG, DKA (HAGMA+NAGMA), COPD (chronic resp acidosis), Metabolic alkalosis, Triple mixed disorder (salicylate pattern) |
+| **Edge Cases** | VBG mode, Extreme acidosis (pH 6.9), Required-fields-only, Respiratory alkalosis, Osmolar gap, Henderson-Hasselbalch mismatch, Empty field validation |
+
+All cases passed with correct diagnoses, compensation patterns, and differential activation.
 
 ## References
 
@@ -86,7 +113,7 @@ This app is optimized for seamless deployment on **Vercel**:
 
 ## Disclaimer
 
-This tool is for educational purposes only. Clinical decisions should always be made by qualified healthcare professionals in the context of the individual patient.
+This tool is for **educational purposes only**. Clinical decisions should always be made by qualified healthcare professionals in the context of the individual patient.
 
 ## License
 

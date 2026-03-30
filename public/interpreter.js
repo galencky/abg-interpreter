@@ -1,21 +1,65 @@
 // ============================================================
-//  ABG / VBG Interpreter — Clinical Logic
-//  Based on LITFL Acid-Base resources (litfl.com/acid-base/)
+//  ABG / VBG Interpreter — Clinical Logic Engine
+//  Author: Kuan-Yuan Chen, M.D.
+//  License: CC BY 4.0
+//
+//  Algorithm based on LITFL Acid-Base resources
+//  (litfl.com/acid-base/) and StatPearls references.
+//
+//  This file contains ALL clinical logic, UI interaction
+//  handlers, differential diagnosis scoring, telemetry
+//  submission, and utility functions.
+//
+//  FILE STRUCTURE:
+//    1. Global state & settings
+//    2. Unit & acuity slider handlers
+//    3. Value getters with VBG conversion
+//    4. Validation & plausibility checks
+//    5. Core calculation functions
+//    6. Differential Diagnosis (DDx) database
+//    7. Main interpret() function (Steps 1–5)
+//    8. DDx rendering & scoring engine
+//    9. Share/Copy & Toast utilities
+//   10. URL-based state loading (deep links)
 // ============================================================
 
+// ============================================================
+//  SECTION 1: GLOBAL STATE & CONFIGURABLE SETTINGS
+// ============================================================
+
+/**
+ * Current sample type: 'abg' (arterial) or 'vbg' (venous).
+ * When VBG, pH +0.035 and PCO2 -5.7 are applied to convert to
+ * arterial-equivalent values for clinical interpretation.
+ */
 let sampleType = 'abg';
 
-// ---- Advanced settings (configurable clinical parameters) ----
+/**
+ * Advanced settings that control interpretation thresholds.
+ * These can be changed by the user via the "Advanced Settings" panel.
+ *
+ * chronRespAcid: HCO3 rise per 10 mmHg PCO2 increase in chronic resp acidosis
+ *   - 3.5 (classic/LITFL) vs 4.0 (StatPearls, more contemporary)
+ * drLower: Lower bound for delta ratio to distinguish pure HAGMA from mixed
+ *   - 0.8 (some sources) vs 1.0 (LITFL)
+ * aaFormula: A-a gradient expected formula
+ *   - 'linear': 2.5 + 0.21 * age (most common)
+ *   - 'quarter': (age + 10) / 4
+ */
 let advancedSettings = {
-    chronRespAcid: 4.0,    // default: StatPearls (updated from 3.5)
-    drLower: 1.0,          // default: LITFL (updated from 0.8)
-    aaFormula: 'linear',   // default: 2.5 + 0.21 * age
+    chronRespAcid: 4.0,
+    drLower: 1.0,
+    aaFormula: 'linear',
 };
 
-// ---- Unit toggle state ----
+/**
+ * Tracks the current display unit for Lactate and Glucose inputs.
+ * 'mgdl' = mg/dL (default), 'mmol' = mmol/L.
+ * Internally, lactate is always converted to mmol/L and glucose to mg/dL.
+ */
 let unitState = {
-    lactate: 'mgdl',   // 'mgdl' (left) or 'mmol' (right)
-    glucose: 'mgdl',   // 'mgdl' (left) or 'mmol' (right)
+    lactate: 'mgdl',
+    glucose: 'mgdl',
 };
 
 function setUnit(field, unit) {
@@ -60,7 +104,13 @@ function setUnit(field, unit) {
     }
 }
 
-// Convert input to internal units (lactate → mmol/L, glucose → mg/dL)
+// ============================================================
+//  SECTION 2: UNIT CONVERSION HELPERS
+//  Convert display values to internal standard units:
+//    - Lactate: always mmol/L internally (÷ 9.01 from mg/dL)
+//    - Glucose: always mg/dL internally (× 18.02 from mmol/L)
+// ============================================================
+
 function getLactateMMOL() {
     const val = parseFloat(document.getElementById('lactate').value);
     if (isNaN(val)) return NaN;
@@ -73,7 +123,13 @@ function getGlucoseMGDL() {
     return unitState.glucose === 'mmol' ? val * 18.02 : val;
 }
 
-// ---- Acuity slider ----
+// ============================================================
+//  SECTION 3: UI INTERACTION HANDLERS
+//  Acuity slider, collapsible section toggles, advanced panel,
+//  and ABG/VBG sample type switching.
+// ============================================================
+
+/** Set the clinical onset (acuity) value and update the 3-way slider UI. */
 function setAcuity(value) {
     document.getElementById('acuity').value = value;
     document.querySelectorAll('.acuity-option').forEach(b => b.classList.remove('active'));
@@ -84,6 +140,7 @@ function setAcuity(value) {
     if (slider) slider.setAttribute('data-pos', posMap[value] || '0');
 }
 
+/** Toggle a collapsible section open/closed by its DOM id. */
 function toggleSection(id) {
     document.getElementById(id).classList.toggle('open');
 }
@@ -113,9 +170,24 @@ function setSampleType(type) {
     document.getElementById('po2-label').textContent = type === 'abg' ? 'PaO2 (mmHg)' : 'PvO2 (mmHg)';
 }
 
-// ---- Value getters with VBG conversion ----
-// Input units: albumin in g/dL, lactate in mmol/L
-// Internal units: albumin in g/L (for AG correction), lactate in mmol/L
+// ============================================================
+//  SECTION 4: VALUE GETTERS WITH VBG→ABG CONVERSION
+//
+//  Reads all input fields from the DOM, applies unit conversions,
+//  and (for VBG mode) converts to arterial-equivalent values.
+//
+//  Internal units:
+//    - albumin: g/L (× 10 from g/dL, for AG correction formula)
+//    - lactate: mmol/L
+//    - glucose: mg/dL
+//    - BUN: mg/dL
+//    - Measured Osm: mOsm/kg
+//
+//  VBG conversion (LITFL reference):
+//    - pH_arterial ≈ pH_venous + 0.035
+//    - PCO2_arterial ≈ PCO2_venous − 5.7 mmHg
+//    - PO2 is NOT valid from VBG → set to NaN
+// ============================================================
 function getValues() {
     const albInput = parseFloat(document.getElementById('albumin').value);   // g/dL
 
@@ -125,37 +197,37 @@ function getValues() {
         hco3: parseFloat(document.getElementById('hco3').value),
         na: parseFloat(document.getElementById('na').value),
         cl: parseFloat(document.getElementById('cl').value),
-        albumin: isNaN(albInput) ? NaN : albInput * 10,        // g/dL → g/L
-        albumin_display: albInput,                               // keep original for display
+        albumin: isNaN(albInput) ? NaN : albInput * 10,        // g/dL → g/L for AG correction
+        albumin_display: albInput,                               // keep g/dL for display/telemetry
         lactate: getLactateMMOL(),                               // always mmol/L internally
         po2: parseFloat(document.getElementById('po2').value),
         fio2: parseFloat(document.getElementById('fio2').value),
         age: parseFloat(document.getElementById('age').value),
-        acuity: document.getElementById('acuity').value,  // 'unknown', 'acute', 'chronic'
+        acuity: document.getElementById('acuity').value,         // 'unknown', 'acute', 'chronic'
         glucose: getGlucoseMGDL(),                               // always mg/dL internally
-        bun: parseFloat(document.getElementById('bun').value),               // mg/dL
-        measOsm: parseFloat(document.getElementById('measOsm').value),       // mOsm/kg
+        bun: parseFloat(document.getElementById('bun').value),   // mg/dL
+        measOsm: parseFloat(document.getElementById('measOsm').value), // mOsm/kg
     };
 
-    // Convert VBG → arterial-equivalent values
+    // Apply VBG → arterial-equivalent conversion
     if (sampleType === 'vbg') {
         return {
-            pH: isNaN(raw.pH) ? NaN : raw.pH + 0.035,
-            pco2: isNaN(raw.pco2) ? NaN : raw.pco2 - 5.7,
-            hco3: raw.hco3,
+            pH: isNaN(raw.pH) ? NaN : raw.pH + 0.035,    // venous pH is ~0.035 lower
+            pco2: isNaN(raw.pco2) ? NaN : raw.pco2 - 5.7, // venous PCO2 is ~5.7 higher
+            hco3: raw.hco3,              // HCO3 is similar in venous and arterial blood
             na: raw.na,
             cl: raw.cl,
             albumin: raw.albumin,
             albumin_display: raw.albumin_display,
             lactate: raw.lactate,
-            po2: NaN,
+            po2: NaN,                    // PO2 from VBG is NOT clinically useful
             fio2: raw.fio2,
             age: raw.age,
             acuity: raw.acuity,
             glucose: raw.glucose,
             bun: raw.bun,
             measOsm: raw.measOsm,
-            rawPH: raw.pH,
+            rawPH: raw.pH,               // preserve original VBG values for telemetry
             rawPCO2: raw.pco2,
             isVBG: true,
         };
@@ -163,7 +235,10 @@ function getValues() {
     return { ...raw, isVBG: false };
 }
 
-// ---- Clear all inputs ----
+/**
+ * Reset all inputs, hide results, restore ABG mode, and collapse sections.
+ * Called when the user clicks the "Clear" button.
+ */
 function clearAll() {
     ['pH', 'pco2', 'hco3', 'na', 'cl', 'albumin', 'lactate', 'po2', 'fio2', 'age', 'glucose', 'bun', 'measOsm'].forEach(id => {
         const el = document.getElementById(id);
@@ -179,17 +254,27 @@ function clearAll() {
     document.querySelectorAll('.collapsible.open').forEach(el => el.classList.remove('open'));
 }
 
-// ---- Validation ----
+// ============================================================
+//  SECTION 5: VALIDATION & PLAUSIBILITY CHECKS
+// ============================================================
+
+/**
+ * Validate required fields. Only pH, PCO2, and HCO3 are mandatory.
+ * Na+ and Cl- are optional (only needed for anion gap analysis).
+ */
 function validate(v) {
     const errors = [];
     if (isNaN(v.pH)) errors.push('pH is required');
     if (isNaN(v.pco2)) errors.push('PCO2 is required');
     if (isNaN(v.hco3)) errors.push('HCO3⁻ is required');
-    // Na+ and Cl- are optional — needed only for anion gap analysis
     return errors;
 }
 
-// ---- Physiological plausibility & consistency warnings ----
+/**
+ * Check for physiologically extreme values and internal consistency
+ * using Henderson-Hasselbalch equation: pH = 6.1 + log10(HCO3 / (0.03 × PCO2)).
+ * Returns an array of warning strings (empty if everything is plausible).
+ */
 function getWarnings(v) {
     const warnings = [];
     if (!isNaN(v.pH) && (v.pH < 6.8 || v.pH > 7.8))
@@ -207,16 +292,33 @@ function getWarnings(v) {
     return warnings;
 }
 
-// ---- Core calculations ----
+// ============================================================
+//  SECTION 6: CORE CALCULATION FUNCTIONS
+//  Pure math formulas used by the interpretation engine.
+// ============================================================
+
+/** Anion Gap = Na - (Cl + HCO3). Normal: 8–12 mmol/L. */
 function calcAnionGap(na, cl, hco3) {
     return na - (cl + hco3);
 }
 
+/**
+ * Albumin-corrected AG: AG + 0.25 × (40 − albumin_g/L).
+ * Each 10 g/L drop in albumin falsely lowers AG by ~2.5.
+ */
 function calcCorrectedAG(ag, albumin) {
-    if (isNaN(albumin)) return ag;                          // no correction
+    if (isNaN(albumin)) return ag;
     return ag + 0.25 * (40 - albumin);
 }
 
+/**
+ * Delta Ratio = ΔAG / ΔHCO3 = (AG - 12) / (24 - HCO3).
+ * Interpretation:
+ *   < 0.4 → pure NAGMA
+ *   0.4–1.0 → combined HAGMA + NAGMA
+ *   1.0–2.0 → pure HAGMA
+ *   > 2.0 → concurrent metabolic alkalosis or chronic resp acidosis
+ */
 function calcDeltaRatio(ag, hco3, normalAG) {
     const deltaAG = ag - normalAG;
     const deltaHCO3 = 24 - hco3;
@@ -224,33 +326,53 @@ function calcDeltaRatio(ag, hco3, normalAG) {
     return deltaAG / deltaHCO3;
 }
 
+/** Winter's Formula: Expected PCO2 = 1.5 × HCO3 + 8 (± 2). For metabolic acidosis. */
 function wintersFormula(hco3) {
     const expected = 1.5 * hco3 + 8;
     return { expected, low: expected - 2, high: expected + 2 };
 }
 
+/** Met Alkalosis compensation: Expected PCO2 = 0.7 × HCO3 + 20 (± 5). */
 function metAlkCompensation(hco3) {
     const expected = 0.7 * hco3 + 20;
     return { expected, low: expected - 5, high: expected + 5 };
 }
 
+/** Acute resp acidosis: HCO3 rises 1 per 10 mmHg PCO2 increase. */
 function acuteRespAcidosisHCO3(pco2) {
     return 24 + 1 * ((pco2 - 40) / 10);
 }
 
+/** Chronic resp acidosis: HCO3 rises 3.5–4.0 per 10 mmHg PCO2 increase. */
 function chronicRespAcidosisHCO3(pco2) {
     return 24 + advancedSettings.chronRespAcid * ((pco2 - 40) / 10);
 }
 
+/** Acute resp alkalosis: HCO3 falls 2 per 10 mmHg PCO2 decrease. */
 function acuteRespAlkalosisHCO3(pco2) {
     return 24 - 2 * ((40 - pco2) / 10);
 }
 
+/** Chronic resp alkalosis: HCO3 falls 5 per 10 mmHg PCO2 decrease. */
 function chronicRespAlkalosisHCO3(pco2) {
     return 24 - 5 * ((40 - pco2) / 10);
 }
 
-// ---- Differential Diagnosis Database ----
+// ============================================================
+//  SECTION 7: DIFFERENTIAL DIAGNOSIS (DDx) DATABASE
+//
+//  Organized by disorder type: hagma, nagma, metAlk,
+//  respAcidosis, respAlkalosis. Each entry has:
+//    - name: Display name
+//    - detail: Clinical description
+//    - tags: Keywords for filtering
+//    - category: Grouping within the DDx panel
+//    - clues: Keyed clinical signals for scoring (optional)
+//
+//  The clues object maps to scoring signals in scoreDDx():
+//    lactatElevated, glucose:'high', osmolarGap, renal,
+//    dm, alcohol, ingestion, potassium:'low'/'high', etc.
+// ============================================================
 const DDX = {
     hagma: [
         { name: 'Lactic Acidosis', detail: 'Tissue hypoxia, sepsis, shock, seizures, liver failure, metformin, linezolid', tags: ['lactate', 'shock', 'sepsis'], category: 'Endogenous Acids', clues: { lactatElevated: true } },
@@ -327,7 +449,20 @@ const DDX = {
     ],
 };
 
-// ---- Main Interpretation ----
+// ============================================================
+//  SECTION 8: MAIN INTERPRETATION ENGINE — interpret()
+//
+//  This is the core function called when users click "Interpret".
+//  It executes a 5-step clinical algorithm:
+//    Step 1: Assess pH → Acidemia / Alkalemia / Normal
+//    Step 2: Identify primary disorder by PCO2 and HCO3 direction
+//    Step 3: Check compensation (Winter's, resp acidosis/alkalosis)
+//    Step 4: Calculate Anion Gap (if Na/Cl provided)
+//    Step 5: Delta Ratio & Delta-Delta (if HAGMA detected)
+//  Plus: Oxygenation (A-a gradient, P/F ratio), Lactate, Osmolar Gap
+//
+//  After interpretation, it renders results, builds DDx, and submits telemetry.
+// ============================================================
 function interpret() {
     const v = getValues();
     const errors = validate(v);
@@ -852,7 +987,13 @@ function interpret() {
         renderDDx(activeDDx, v);
     }
 
-    // ---- Telemetry Submission ----
+    // ============================================================
+    //  TELEMETRY SUBMISSION
+    //  Sends anonymized clinical data to /api/submit (Neon Postgres).
+    //  Captures RAW DOM inputs (not converted values) so VBG data
+    //  is preserved as-entered. Non-blocking: errors are logged
+    //  but never disrupt the user experience.
+    // ============================================================
     try {
         let fieldsFilled = 0;
         const allKeys = ['pH', 'pco2', 'hco3', 'na', 'cl', 'albumin', 'lactate', 'glucose', 'bun', 'po2', 'fio2', 'age'];
@@ -897,7 +1038,7 @@ function interpret() {
             anion_gap: !isNaN(useAG) ? useAG : null,
             delta_ratio: deltaRatio !== null && deltaRatio !== Infinity ? deltaRatio : null,
             schema_v: 2,
-            telemetry_v: '2026-03-31b',
+            telemetry_v: '2026-03-31c',
             timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             browser_lang: navigator.language,
             device_type: /Mobi|Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ? 'mobile/tablet' : 'desktop',
@@ -923,6 +1064,22 @@ function interpret() {
     }
 }
 
+// ============================================================
+//  SECTION 9: DDx RENDERING & SCORING ENGINE
+//
+//  renderDDx(): Builds the clinical context narrowing UI
+//    (checkboxes for diarrhea, sepsis, etc.) and renders items.
+//
+//  scoreDDx(): Scores each DDx item based on:
+//    1. Clinical context checkboxes (ctx.diarrhea, ctx.renal, etc.)
+//    2. Lab values (lactate, glucose, osmolar gap, potassium, chloride)
+//    3. Tag-based matching (item.tags array)
+//    Returns { score, reasons[] }. Score>0 = likely, <0 = unlikely.
+//
+//  renderDDxItems(): Sorts items by score and renders HTML.
+//
+//  toggleDDx(): Allows manual likely/unlikely override by clicking.
+// ============================================================
 function renderDDx(activeDDx, values) {
     const ddxList = document.getElementById('ddx-list');
     const ddxFilters = document.getElementById('ddx-filters');
@@ -1128,14 +1285,18 @@ function toggleDDx(id) {
     }
 }
 
-// Allow Enter key to trigger interpretation
+// ============================================================
+//  SECTION 10: KEYBOARD SHORTCUTS, SHARE/COPY, TOAST, URL LOADING
+// ============================================================
+
+/** Allow Enter key on any input field to trigger interpretation. */
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
         interpret();
     }
 });
 
-// ---- 2.6: Share / Copy functions ----
+/** Copy a shareable URL containing all current input values as query params. */
 function copyLink() {
     const fields = ['pH', 'pco2', 'hco3', 'na', 'cl', 'albumin', 'lactate', 'po2', 'fio2', 'age', 'glucose', 'bun', 'measOsm'];
     const params = new URLSearchParams();
@@ -1177,8 +1338,10 @@ function showToast(msg) {
     setTimeout(() => { toast.className = 'toast'; }, 2000);
 }
 
-// Load from URL params on page load
-// Auto-expand collapsed sections that have data
+/**
+ * Auto-expand collapsible sections that contain populated fields.
+ * Called after loading values from URL query parameters.
+ */
 function autoExpandSections() {
     const groups = {
         'grp-electrolytes': ['na', 'cl', 'albumin'],

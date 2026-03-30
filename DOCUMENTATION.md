@@ -10,9 +10,9 @@ A web application designed for systematic arterial and venous blood gas interpre
 - `interpreter.js` — All clinical logic, DDx database, scoring, rendering, and background POST requests for telemetry
 
 **Backend & Config:**
-- `api/submit.js` — Vercel serverless function to write anonymized telemetry to Vercel Postgres
+- `api/submit.js` — Vercel serverless function to write anonymized telemetry to Neon Serverless Postgres
 - `vercel.json` — URL rewrite rules to map `/api` and serve static files from `/public` seamlessly
-- `package.json` — Defines backend dependencies (`@vercel/postgres`)
+- `package.json` — Defines backend dependencies (`@neondatabase/serverless`)
 
 ---
 

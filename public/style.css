@@ -1223,6 +1223,90 @@ footer a {
     padding: 40px 0;
 }
 
+/* Feedback form */
+.fb-lang-toggle {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    margin-right: 12px;
+}
+
+.fb-lang {
+    padding: 3px 10px;
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.fb-lang.active {
+    background: rgba(108,140,255,0.15);
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
+.fb-label {
+    display: block;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text);
+    margin: 14px 0 6px;
+}
+
+.fb-required {
+    color: var(--red);
+}
+
+.fb-optional {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.78rem;
+}
+
+.fb-select,
+.fb-textarea,
+.fb-input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--card-border);
+    border-radius: var(--radius-sm);
+    background: var(--bg);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.88rem;
+    transition: border-color 0.15s;
+}
+
+.fb-select:focus,
+.fb-textarea:focus,
+.fb-input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.fb-textarea {
+    resize: vertical;
+    min-height: 100px;
+    line-height: 1.5;
+}
+
+.fb-submit {
+    width: 100%;
+    margin-top: 18px;
+    padding: 11px;
+    font-size: 0.92rem;
+}
+
+.fb-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Utilities */
 .hidden {
     display: none !important;

@@ -254,11 +254,11 @@
 
         <footer>
             <div class="footer-actions">
-                <a href="#" id="btn-feedback" class="footer-btn feedback-btn" onclick="showToast('Feedback form coming soon!')">
-                    <span class="footer-btn-icon">💬</span> Send Feedback
+                <a href="#" class="footer-btn feedback-btn" onclick="event.preventDefault();openFeedback()">
+                    <span class="footer-btn-icon">💬</span> <span data-i18n="btn-feedback">Send Feedback</span>
                 </a>
-                <a href="#" id="btn-report-bug" class="footer-btn bug-btn" onclick="showToast('Bug report form coming soon!')">
-                    <span class="footer-btn-icon">🐛</span> Report Bug
+                <a href="https://github.com/galencky/abg-interpreter/issues/new?labels=bug&title=Bug%3A+&body=%23%23%20Bug%20Description%0A%0A%23%23%20Steps%20to%20Reproduce%0A1.%20%0A2.%20%0A3.%20%0A%0A%23%23%20Expected%20Behavior%0A%0A%23%23%20Actual%20Behavior%0A%0A%23%23%20Browser%20%2F%20Device%0A" target="_blank" class="footer-btn bug-btn">
+                    <span class="footer-btn-icon">🐛</span> <span data-i18n="btn-bug">Report Bug</span>
                 </a>
             </div>
             <p><strong>Disclaimer:</strong> This tool is for educational purposes only. Clinical decisions should always be made by qualified healthcare professionals in the context of the individual patient.</p>
@@ -266,6 +266,39 @@
             <p class="author">Created by Kuan-Yuan Chen, M.D. &mdash; <a href="mailto:galen147258369@gmail.com">galen147258369@gmail.com</a> &mdash; Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a></p>
         </footer>
     </div>
+    <!-- Feedback Modal -->
+    <div id="feedback-modal" class="modal-overlay hidden" onclick="closeFeedbackBackdrop(event)">
+        <div class="modal-content" style="max-width:520px">
+            <div class="modal-header">
+                <h2 data-i18n="fb-title">Send Feedback</h2>
+                <div class="fb-lang-toggle">
+                    <button class="fb-lang active" data-lang="en" onclick="setFeedbackLang('en')">EN</button>
+                    <button class="fb-lang" data-lang="zh-TW" onclick="setFeedbackLang('zh-TW')">中文</button>
+                </div>
+                <button class="modal-close" onclick="closeFeedback()">&times;</button>
+            </div>
+            <form id="feedback-form" onsubmit="submitFeedback(event)">
+                <label class="fb-label" data-i18n="fb-cat-label">Category</label>
+                <select id="fb-category" class="fb-select">
+                    <option value="suggestion" data-i18n="fb-cat-suggestion">Suggestion</option>
+                    <option value="question" data-i18n="fb-cat-question">Question</option>
+                    <option value="general" data-i18n="fb-cat-general">General Feedback</option>
+                    <option value="other" data-i18n="fb-cat-other">Other</option>
+                </select>
+
+                <label class="fb-label" data-i18n="fb-msg-label">Message <span class="fb-required">*</span></label>
+                <textarea id="fb-message" class="fb-textarea" rows="5" required maxlength="5000" data-i18n-ph="fb-msg-ph" placeholder="Tell us what you think..."></textarea>
+
+                <label class="fb-label" data-i18n="fb-email-label">Your Email <span class="fb-optional">(optional)</span></label>
+                <input type="email" id="fb-email" class="fb-input" data-i18n-ph="fb-email-ph" placeholder="name@example.com">
+
+                <button type="submit" class="btn-primary fb-submit" id="fb-submit-btn">
+                    <span data-i18n="fb-send">Send</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
     <!-- Community Cases Modal -->
     <div id="community-modal" class="modal-overlay hidden" onclick="closeCommunityBackdrop(event)">
         <div class="modal-content">

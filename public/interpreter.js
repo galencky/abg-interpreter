@@ -1294,8 +1294,9 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
         interpret();
     }
-    if (e.key === 'Escape' && !document.getElementById('community-modal').classList.contains('hidden')) {
-        closeCommunity();
+    if (e.key === 'Escape') {
+        if (!document.getElementById('feedback-modal').classList.contains('hidden')) closeFeedback();
+        else if (!document.getElementById('community-modal').classList.contains('hidden')) closeCommunity();
     }
 });
 
@@ -1378,7 +1379,121 @@ function autoExpandSections() {
 })();
 
 // ============================================================
-//  SECTION 11: COMMUNITY CASES
+//  SECTION 11: FEEDBACK FORM
+// ============================================================
+
+const feedbackI18n = {
+    en: {
+        'fb-title': 'Send Feedback',
+        'fb-cat-label': 'Category',
+        'fb-cat-suggestion': 'Suggestion',
+        'fb-cat-question': 'Question',
+        'fb-cat-general': 'General Feedback',
+        'fb-cat-other': 'Other',
+        'fb-msg-label': 'Message',
+        'fb-msg-ph': 'Tell us what you think...',
+        'fb-email-label': 'Your Email',
+        'fb-email-ph': 'name@example.com',
+        'fb-send': 'Send',
+        'fb-sending': 'Sending...',
+        'fb-success': 'Thank you for your feedback!',
+        'fb-error': 'Could not send. Please try again.',
+        'btn-feedback': 'Send Feedback',
+        'btn-bug': 'Report Bug'
+    },
+    'zh-TW': {
+        'fb-title': '傳送回饋',
+        'fb-cat-label': '類別',
+        'fb-cat-suggestion': '建議',
+        'fb-cat-question': '問題',
+        'fb-cat-general': '一般回饋',
+        'fb-cat-other': '其他',
+        'fb-msg-label': '訊息',
+        'fb-msg-ph': '請告訴我們您的想法...',
+        'fb-email-label': '您的 Email',
+        'fb-email-ph': 'name@example.com',
+        'fb-send': '傳送',
+        'fb-sending': '傳送中...',
+        'fb-success': '感謝您的回饋！',
+        'fb-error': '傳送失敗，請稍後再試。',
+        'btn-feedback': '傳送回饋',
+        'btn-bug': '回報問題'
+    }
+};
+
+let feedbackLang = 'en';
+
+function setFeedbackLang(lang) {
+    feedbackLang = lang;
+    document.querySelectorAll('.fb-lang').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.lang === lang);
+    });
+    const strings = feedbackI18n[lang] || feedbackI18n.en;
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.dataset.i18n;
+        if (strings[key]) el.textContent = strings[key];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        const key = el.dataset.i18nPh;
+        if (strings[key]) el.placeholder = strings[key];
+    });
+}
+
+function openFeedback() {
+    document.getElementById('feedback-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeFeedback() {
+    document.getElementById('feedback-modal').classList.add('hidden');
+    if (document.getElementById('community-modal').classList.contains('hidden')) {
+        document.body.style.overflow = '';
+    }
+}
+
+function closeFeedbackBackdrop(e) {
+    if (e.target === e.currentTarget) closeFeedback();
+}
+
+function submitFeedback(e) {
+    e.preventDefault();
+    const btn = document.getElementById('fb-submit-btn');
+    const strings = feedbackI18n[feedbackLang] || feedbackI18n.en;
+
+    const payload = {
+        category: document.getElementById('fb-category').value,
+        message: document.getElementById('fb-message').value.trim(),
+        email: document.getElementById('fb-email').value.trim() || null,
+        lang: feedbackLang
+    };
+
+    if (!payload.message) return;
+
+    btn.disabled = true;
+    btn.querySelector('[data-i18n]').textContent = strings['fb-sending'];
+
+    fetch('/api/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    .then(r => {
+        if (!r.ok) throw new Error('Server error');
+        showToast(strings['fb-success']);
+        document.getElementById('feedback-form').reset();
+        closeFeedback();
+    })
+    .catch(() => {
+        showToast(strings['fb-error']);
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.querySelector('[data-i18n]').textContent = strings['fb-send'];
+    });
+}
+
+// ============================================================
+//  SECTION 12: COMMUNITY CASES
 // ============================================================
 
 function openCommunity() {

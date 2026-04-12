@@ -33,15 +33,22 @@ export default async function handler(req, res) {
         const resend = new Resend(process.env.RESEND_API_KEY)
 
         const emailVal = email && email.trim() ? email.trim() : null
-        const replyTo = emailVal && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal) ? emailVal : undefined
+        const isValidEmail = emailVal && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)
         const categoryLabel = category || 'General'
         const langLabel = lang === 'zh-TW' ? '中文' : 'English'
 
-        await resend.emails.send({
+        const emailParams = {
           from: 'ABG Interpreter <onboarding@resend.dev>',
           to: 'galen147258369@gmail.com',
-          replyTo: replyTo,
           subject: 'ABG/VBG Interpreter User Feedback',
+        }
+        if (isValidEmail) {
+          emailParams.cc = emailVal
+          emailParams.replyTo = emailVal
+        }
+
+        await resend.emails.send({
+          ...emailParams,
           html: `
             <h2>New Feedback Received</h2>
             <table style="border-collapse:collapse;font-family:sans-serif;">

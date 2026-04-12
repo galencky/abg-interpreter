@@ -13,6 +13,7 @@
         <header>
             <h1>ABG / VBG Interpreter</h1>
             <p class="subtitle">Systematic acid-base analysis with interactive differential diagnosis</p>
+            <button class="btn-community" onclick="openCommunity()">Community Cases</button>
         </header>
 
         <!-- Combined Input Card -->
@@ -165,6 +166,8 @@
             </div>
             <input type="hidden" id="acuity" value="unknown">
 
+            <p class="privacy-notice">Entered values may be shown anonymously in the <strong>Community Cases</strong> feed for educational purposes. No patient identifiers are collected.</p>
+
             <div class="btn-row">
                 <button class="btn-primary" onclick="interpret()">Interpret</button>
                 <button class="btn-secondary" onclick="clearAll()">Clear</button>
@@ -263,6 +266,20 @@
             <p class="author">Created by Kuan-Yuan Chen, M.D. &mdash; <a href="mailto:galen147258369@gmail.com">galen147258369@gmail.com</a> &mdash; Licensed under <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a></p>
         </footer>
     </div>
-    <script src="interpreter.js?v=20260331c"></script>
+    <!-- Community Cases Modal -->
+    <div id="community-modal" class="modal-overlay hidden" onclick="closeCommunityBackdrop(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Community Cases</h2>
+                <button class="modal-close" onclick="closeCommunity()">&times;</button>
+            </div>
+            <p class="modal-desc">Recent anonymous interpretations submitted by users worldwide. All data is de-identified &mdash; no patient information is collected or displayed.</p>
+            <div id="community-list" class="community-list">
+                <p class="community-loading">Loading cases&hellip;</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="interpreter.js?v=20260412"></script>
 </body>
 </html>

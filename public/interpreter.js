@@ -1294,6 +1294,9 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && e.target.tagName === 'INPUT') {
         interpret();
     }
+    if (e.key === 'Escape' && !document.getElementById('community-modal').classList.contains('hidden')) {
+        closeCommunity();
+    }
 });
 
 /** Copy a shareable URL containing all current input values as query params. */
@@ -1373,3 +1376,119 @@ function autoExpandSections() {
         setTimeout(interpret, 100);
     }
 })();
+
+// ============================================================
+//  SECTION 11: COMMUNITY CASES
+// ============================================================
+
+function openCommunity() {
+    const modal = document.getElementById('community-modal');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    loadCommunity();
+}
+
+function closeCommunity() {
+    document.getElementById('community-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function closeCommunityBackdrop(e) {
+    if (e.target === e.currentTarget) closeCommunity();
+}
+
+function loadCommunity() {
+    const list = document.getElementById('community-list');
+    list.innerHTML = '<p class="community-loading">Loading cases&hellip;</p>';
+
+    fetch('/api/community')
+        .then(r => {
+            if (!r.ok) throw new Error('Server error');
+            return r.json();
+        })
+        .then(data => {
+            if (!data.cases || data.cases.length === 0) {
+                list.innerHTML = '<p class="community-empty">No cases yet. Be the first to interpret!</p>';
+                return;
+            }
+            list.innerHTML = '';
+            data.cases.forEach(c => {
+                const el = document.createElement('div');
+                el.className = 'community-case';
+
+                // Format date
+                const date = new Date(c.created_at);
+                const dateStr = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+
+                // Build lab values
+                const vals = [];
+                if (c.ph) vals.push('<span class="community-val"><strong>pH</strong> ' + c.ph + '</span>');
+                if (c.pco2) vals.push('<span class="community-val"><strong>PCO2</strong> ' + c.pco2 + '</span>');
+                if (c.hco3) vals.push('<span class="community-val"><strong>HCO3</strong> ' + c.hco3 + '</span>');
+                if (c.na) vals.push('<span class="community-val"><strong>Na</strong> ' + c.na + '</span>');
+                if (c.cl) vals.push('<span class="community-val"><strong>Cl</strong> ' + c.cl + '</span>');
+                if (c.albumin) vals.push('<span class="community-val"><strong>Alb</strong> ' + c.albumin + '</span>');
+                if (c.lactate) vals.push('<span class="community-val"><strong>Lac</strong> ' + c.lactate + '</span>');
+                if (c.glucose) vals.push('<span class="community-val"><strong>Glu</strong> ' + c.glucose + '</span>');
+                if (c.anion_gap) vals.push('<span class="community-val"><strong>AG</strong> ' + parseFloat(c.anion_gap).toFixed(1) + '</span>');
+                if (c.delta_ratio) vals.push('<span class="community-val"><strong>DR</strong> ' + parseFloat(c.delta_ratio).toFixed(2) + '</span>');
+
+                // Build DDx tags (top likely/unlikely)
+                let ddxHtml = '';
+                if (c.diff_dx_details && Array.isArray(c.diff_dx_details)) {
+                    const likely = c.diff_dx_details.filter(d => d.status === 'likely').slice(0, 3);
+                    const unlikely = c.diff_dx_details.filter(d => d.status === 'unlikely').slice(0, 2);
+                    likely.forEach(d => {
+                        ddxHtml += '<span class="community-ddx-tag likely">' + escapeHtml(d.name) + '</span>';
+                    });
+                    unlikely.forEach(d => {
+                        ddxHtml += '<span class="community-ddx-tag unlikely">' + escapeHtml(d.name) + '</span>';
+                    });
+                }
+
+                const disorder = c.primary_disorder || 'Normal';
+
+                el.innerHTML =
+                    '<div class="community-case-header">' +
+                        '<span class="community-case-type">' + (c.sample_type || 'ABG').toUpperCase() + '</span>' +
+                        '<span class="community-case-date">' + dateStr + '</span>' +
+                    '</div>' +
+                    '<div class="community-case-disorder">' + escapeHtml(disorder) + '</div>' +
+                    '<div class="community-case-values">' + vals.join('') + '</div>' +
+                    (ddxHtml ? '<div class="community-ddx">' + ddxHtml + '</div>' : '');
+
+                // Click to load case values into the form
+                el.addEventListener('click', function() {
+                    loadCaseIntoForm(c);
+                    closeCommunity();
+                });
+
+                list.appendChild(el);
+            });
+        })
+        .catch(err => {
+            console.error('[Community] Error:', err);
+            list.innerHTML = '<p class="community-empty">Could not load cases. Try again later.</p>';
+        });
+}
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+function loadCaseIntoForm(c) {
+    clearAll();
+    if (c.sample_type === 'vbg') setSampleType('vbg');
+    const map = { ph: 'pH', pco2: 'pco2', hco3: 'hco3', na: 'na', cl: 'cl', albumin: 'albumin', lactate: 'lactate', glucose: 'glucose' };
+    Object.entries(map).forEach(([key, id]) => {
+        if (c[key]) {
+            const el = document.getElementById(id);
+            if (el) el.value = c[key];
+        }
+    });
+    autoExpandSections();
+    setTimeout(interpret, 100);
+    showToast('Case loaded — scroll down for results');
+}

@@ -32,29 +32,20 @@ export default async function handler(req, res) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY)
 
-        const emailVal = email && email.trim() ? email.trim() : null
-        const isValidEmail = emailVal && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)
+        const userEmail = email && email.trim() ? email.trim() : null
         const categoryLabel = category || 'General'
         const langLabel = lang === 'zh-TW' ? '中文' : 'English'
 
-        const emailParams = {
+        await resend.emails.send({
           from: 'ABG Interpreter <onboarding@resend.dev>',
           to: 'galen147258369@gmail.com',
           subject: 'ABG/VBG Interpreter User Feedback',
-        }
-        if (isValidEmail) {
-          emailParams.cc = emailVal
-          emailParams.replyTo = emailVal
-        }
-
-        await resend.emails.send({
-          ...emailParams,
           html: `
             <h2>New Feedback Received</h2>
             <table style="border-collapse:collapse;font-family:sans-serif;">
               <tr><td style="padding:6px 12px;font-weight:bold;">Category</td><td style="padding:6px 12px;">${esc(categoryLabel)}</td></tr>
               <tr><td style="padding:6px 12px;font-weight:bold;">Language</td><td style="padding:6px 12px;">${langLabel}</td></tr>
-              <tr><td style="padding:6px 12px;font-weight:bold;">User Email</td><td style="padding:6px 12px;">${isValidEmail ? esc(emailVal) : '<em>Not provided</em>'}</td></tr>
+              <tr><td style="padding:6px 12px;font-weight:bold;">User Email</td><td style="padding:6px 12px;">${userEmail ? esc(userEmail) : '<em>Not provided</em>'}</td></tr>
             </table>
             <h3>Message</h3>
             <div style="padding:12px;background:#f5f5f5;border-radius:8px;white-space:pre-wrap;font-size:14px;">${esc(message.trim())}</div>

@@ -18,7 +18,10 @@ A systematic acid-base analysis tool with interactive differential diagnosis, bu
 - **Shareable Results** — Copy link (URL parameters) or copy as plain text for EMR documentation
 - **Henderson-Hasselbalch Consistency Check** — Warns when pH/PCO₂/HCO₃ values don't add up
 - **Telemetry** — Anonymized JSONB payloads → Neon Serverless Postgres. Captures raw inputs, preserving VBG data as-entered
-- **Feedback & Bug Reporting** — Footer buttons for user feedback (to be linked to Google Sheets/Forms)
+- **Community Cases** — Browse anonymized recent interpretations from other users for educational purposes, with click-to-load functionality
+- **Feedback Form** — Bilingual (EN / 中文) in-app feedback form that saves to database and sends email notifications via Resend
+- **Bug Reporting** — Direct link to GitHub Issues with pre-filled bug report template
+- **Privacy Notice** — Inline reminder that entered data may be shown anonymously in the Community Cases feed
 
 ## Tech Stack
 
@@ -28,7 +31,8 @@ A systematic acid-base analysis tool with interactive differential diagnosis, bu
 | Backend | Vercel Serverless Function (Node.js ESM) |
 | Database | Neon Serverless Postgres (JSONB) |
 | Hosting | Vercel |
-| SDK | `@neondatabase/serverless` |
+| Email | Resend (transactional email) |
+| SDK | `@neondatabase/serverless`, `resend` |
 
 ## Project Structure
 
@@ -47,11 +51,15 @@ abg-interpreter/
 │       ├── Section 7: Differential Diagnosis database (63 entries)
 │       ├── Section 8: Main interpret() engine (Steps 1–5)
 │       ├── Section 9: DDx rendering & scoring engine
-│       └── Section 10: Share/Copy, Toast, URL loading
+│       ├── Section 10: Share/Copy, Toast, URL loading
+│       ├── Section 11: Feedback form (bilingual EN/中文)
+│       └── Section 12: Community Cases modal & loader
 ├── api/
-│   └── submit.js                # Serverless function → Neon Postgres
+│   ├── submit.js                # Telemetry serverless function → Neon Postgres
+│   ├── feedback.js              # Feedback submission → DB + email via Resend
+│   └── community.js             # GET recent anonymized cases from DB
 ├── vercel.json                  # Rewrites, cache-control headers
-├── package.json                 # Dependencies (@neondatabase/serverless)
+├── package.json                 # Dependencies (@neondatabase/serverless, resend)
 ├── DOCUMENTATION.md             # Full technical documentation
 └── README.md
 ```
@@ -62,7 +70,7 @@ This app is designed for seamless deployment on **Vercel**:
 
 1. **Import** your GitHub repository in the Vercel dashboard.
 2. **Add the Neon integration** from Vercel Marketplace (Settings → Integrations → Neon). This auto-populates the `DATABASE_URL` env var.
-3. **Create the table** — run this SQL once in the Neon SQL Editor:
+3. **Create the tables** — run this SQL once in the Neon SQL Editor:
    ```sql
    CREATE TABLE IF NOT EXISTS submissions (
      id SERIAL PRIMARY KEY,
@@ -70,6 +78,15 @@ This app is designed for seamless deployment on **Vercel**:
      country VARCHAR(10),
      region VARCHAR(10),
      payload JSONB
+   );
+
+   CREATE TABLE IF NOT EXISTS feedback (
+     id SERIAL PRIMARY KEY,
+     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+     category VARCHAR(20),
+     message TEXT NOT NULL,
+     email VARCHAR(255),
+     lang VARCHAR(10)
    );
    ```
 4. **Deploy** — Vercel auto-deploys on every `git push`.
@@ -80,6 +97,7 @@ This app is designed for seamless deployment on **Vercel**:
 |----------|--------|---------|
 | `DATABASE_URL` | Neon integration (auto) | Primary connection string |
 | `POSTGRES_URL` | Fallback (legacy) | Used if `DATABASE_URL` is absent |
+| `RESEND_API_KEY` | [Resend](https://resend.com) | Email notifications for feedback (optional — feedback saves to DB regardless) |
 
 ### Cache Control
 

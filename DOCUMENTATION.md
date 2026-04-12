@@ -7,12 +7,14 @@ A web application designed for systematic arterial and venous blood gas interpre
 **Frontend Files (`/public`):**
 - `index.html` — UI structure, input groups, results container
 - `style.css` — Dark theme, responsive layout, component styles
-- `interpreter.js` — All clinical logic, DDx database, scoring, rendering, and telemetry (fully commented with 10 section markers)
+- `interpreter.js` — All clinical logic, DDx database, scoring, rendering, telemetry, feedback form, and community cases (fully commented with 12 section markers)
 
 **Backend & Config:**
 - `api/submit.js` — Vercel serverless function to write anonymized telemetry to Neon Serverless Postgres
+- `api/feedback.js` — Vercel serverless function for feedback submissions (saves to DB + sends email via Resend)
+- `api/community.js` — Vercel serverless function to fetch recent anonymized cases (GET endpoint)
 - `vercel.json` — URL rewrite rules to map `/api` and serve static files from `/public` seamlessly
-- `package.json` — Defines backend dependencies (`@neondatabase/serverless`)
+- `package.json` — Defines backend dependencies (`@neondatabase/serverless`, `resend`)
 
 ---
 
@@ -21,13 +23,18 @@ A web application designed for systematic arterial and venous blood gas interpre
 ```
 User Input → getValues() → validate() → interpret() → Render Results 
                 ↓                            ↓               ↓
-          VBG conversion              6-step algorithm      (Async /api/submit) → Vercel Postgres
+          VBG conversion              6-step algorithm      (Async /api/submit) → Neon Postgres
           Unit conversion              ↓
                                   DDx activation → renderDDx() → renderDDxItems()
                                                                       ↓
                                                               scoreDDx() per item
                                                                       ↓
                                                               Sort & display
+
+Community Cases:  "Community Cases" btn → GET /api/community → Modal list → Click case → loadCaseIntoForm()
+
+Feedback:         "Send Feedback" btn → Modal form (EN/中文) → POST /api/feedback → DB + Email (Resend)
+Bug Reports:      "Report Bug" btn → GitHub Issues (pre-filled template)
 ```
 
 ### Telemetry / Backend Integration
@@ -56,6 +63,8 @@ The file is organized into 10 clearly marked sections:
 | 8. Main Interpret Engine | `interpret()` — 5-step algorithm + oxygenation/lactate/osmolar gap |
 | 9. DDx Rendering & Scoring | `renderDDx()`, `scoreDDx()`, `renderDDxItems()` |
 | 10. Share/Copy, Toast, URL Loading | `copyLink()`, `copyText()`, `loadFromURL()` |
+| 11. Feedback Form | `openFeedback()`, `submitFeedback()`, `setFeedbackLang()`, bilingual i18n |
+| 12. Community Cases | `openCommunity()`, `loadCommunity()`, `loadCaseIntoForm()` |
 
 #### `getValues()`
 Reads all form inputs and converts to internal units:
@@ -517,10 +526,107 @@ Collapsible sections use CSS `max-height` transition. Auto-expand when URL param
 6. References (LITFL links)
 
 ### Footer
-1. **Send Feedback** button — styled in accent blue (placeholder link, ready for Google Sheets/Forms)
-2. **Report Bug** button — styled in warning orange (placeholder link, ready for Google Sheets/Forms)
+1. **Send Feedback** button — styled in accent blue, opens in-app bilingual feedback modal
+2. **Report Bug** button — styled in warning orange, links to GitHub Issues with pre-filled bug report template
 3. Disclaimer
 4. Author credit and license
+
+---
+
+## Community Cases (Section 12)
+
+### Purpose
+Allows users to browse anonymized recent interpretations submitted by other users worldwide, providing educational exposure to diverse clinical scenarios.
+
+### Flow
+1. User clicks "Community Cases" button in the header
+2. Modal overlay opens, fetches `GET /api/community`
+3. API returns the 50 most recent submissions with only anonymous clinical data (no geo, browser, or device info)
+4. Each case displays: sample type, date, primary disorder, lab values, and top likely/unlikely DDx tags
+5. Clicking a case loads its values into the main form, auto-expands sections, and auto-interprets
+
+### Privacy
+- **No patient identifiers** are ever collected or stored
+- Community display excludes: geolocation, browser language, device type, timezone
+- Only lab values, calculated results, and DDx scores are shown
+- A privacy notice above the Interpret button reminds users: *"Entered values may be shown anonymously in the Community Cases feed"*
+
+### API Endpoint: `GET /api/community`
+
+Returns:
+```json
+{
+  "cases": [
+    {
+      "created_at": "2026-04-12T...",
+      "sample_type": "abg",
+      "ph": "7.22", "pco2": "30", "hco3": "12",
+      "na": "140", "cl": "105", "albumin": "3.5",
+      "lactate": "4.2", "glucose": "250",
+      "anion_gap": "23", "delta_ratio": "0.79",
+      "primary_disorder": "Metabolic Acidosis",
+      "diff_dx_details": [{"name": "DKA", "category": "Endogenous Acids", "score": 4, "status": "likely"}, ...]
+    }
+  ]
+}
+```
+
+### Database
+Uses the existing `submissions` table — no new table required. Queries only the `payload` JSONB fields needed for display.
+
+---
+
+## Feedback System (Section 11)
+
+### Architecture
+- **Bug reports** → GitHub Issues at `galencky/abg-interpreter` with pre-filled template (Description, Steps to Reproduce, Expected/Actual Behavior, Browser/Device)
+- **Feedback** → In-app modal form → `POST /api/feedback` → Neon Postgres `feedback` table + email notification via Resend
+
+### Bilingual Support (EN / 中文)
+The feedback modal includes an EN / 中文 toggle that switches all labels, placeholders, and status messages between English and Traditional Chinese (zh-TW). Translations are stored in a `feedbackI18n` object in `interpreter.js`.
+
+### Feedback Modal Fields
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| Category | Select | Yes | Suggestion, Question, General Feedback, Other |
+| Message | Textarea | Yes | Max 5000 chars |
+| Email | Email input | No | Used as reply-to if provided |
+
+### API Endpoint: `POST /api/feedback`
+
+**Request body:**
+```json
+{
+  "category": "suggestion",
+  "message": "Great tool! Would love to see...",
+  "email": "user@example.com",
+  "lang": "en"
+}
+```
+
+**Behavior:**
+1. Validates message (required, max 5000 chars)
+2. Inserts into `feedback` table
+3. If `RESEND_API_KEY` env var is set, sends email to `galen147258369@gmail.com` with subject "ABG/VBG Interpreter User Feedback"
+4. Email includes category, language, user email (as reply-to if provided), and full message
+5. Email failure is non-blocking — DB write still succeeds
+
+### Database Table: `feedback`
+```sql
+CREATE TABLE feedback (
+  id SERIAL PRIMARY KEY,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  category VARCHAR(20),
+  message TEXT NOT NULL,
+  email VARCHAR(255),
+  lang VARCHAR(10)
+);
+```
+
+### Environment Variables
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `RESEND_API_KEY` | Optional | Enables email notifications; feedback saves to DB regardless |
 
 ---
 
@@ -544,6 +650,13 @@ Collapsible sections use CSS `max-height` transition. Auto-expand when URL param
 - `.ddx-item.unlikely` — 35% opacity
 - `.reason-for` / `.reason-against` — green/red scoring reason tags
 - `.collapsible` / `.collapsible.open` — expandable input sections
+- `.privacy-notice` — orange-bordered notice above Interpret button
+- `.btn-community` — purple pill button in header for Community Cases
+- `.modal-overlay` / `.modal-content` — full-screen modal with dark backdrop
+- `.community-case` — individual case card with hover effect
+- `.community-ddx-tag.likely` / `.unlikely` — green/red DDx tags in community cases
+- `.fb-lang` / `.fb-lang.active` — EN/中文 language toggle buttons
+- `.fb-select` / `.fb-textarea` / `.fb-input` — dark-themed form controls for feedback
 
 ---
 
@@ -608,6 +721,8 @@ console.log('DR:', dr, dr < drLower ? 'HAGMA+NAGMA' : 'Pure HAGMA');
 - `advancedSettings` — {chronRespAcid, drLower, aaFormula}
 - `unitState` — {lactate, glucose} each 'mgdl' or 'mmol'
 - `manualDDxStates` — {id: 'likely'|'unlikely'} for user-clicked DDx items
+- `feedbackLang` — 'en' or 'zh-TW' (feedback modal language)
+- `feedbackI18n` — bilingual string table for feedback UI
 - `window._activeDDx` — current active DDx categories
 - `window._abgValues` — current interpreted values
 - `window._calcOsmGap` — calculated osmolar gap (NaN if not calculated)

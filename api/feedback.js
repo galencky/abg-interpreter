@@ -32,7 +32,8 @@ export default async function handler(req, res) {
       try {
         const resend = new Resend(process.env.RESEND_API_KEY)
 
-        const replyTo = email && email.trim() ? email.trim() : undefined
+        const emailVal = email && email.trim() ? email.trim() : null
+        const replyTo = emailVal && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal) ? emailVal : undefined
         const categoryLabel = category || 'General'
         const langLabel = lang === 'zh-TW' ? '中文' : 'English'
 

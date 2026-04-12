@@ -590,7 +590,7 @@ The feedback modal includes an EN / 中文 toggle that switches all labels, plac
 |-------|------|----------|-------|
 | Category | Select | Yes | Suggestion, Question, General Feedback, Other |
 | Message | Textarea | Yes | Max 5000 chars |
-| Email | Email input | No | Used as reply-to if provided |
+| Email | Email input | No | Included in email body text for manual follow-up |
 
 ### API Endpoint: `POST /api/feedback`
 
@@ -608,8 +608,9 @@ The feedback modal includes an EN / 中文 toggle that switches all labels, plac
 1. Validates message (required, max 5000 chars)
 2. Inserts into `feedback` table
 3. If `RESEND_API_KEY` env var is set, sends email to `galen147258369@gmail.com` with subject "ABG/VBG Interpreter User Feedback"
-4. Email includes category, language, user email (as reply-to if provided), and full message
-5. Email failure is non-blocking — DB write still succeeds
+4. Email includes category, language, user email (displayed in body text for manual follow-up), and full message
+5. No CC or reply-to is set — the user's email is informational only
+6. Email failure is non-blocking — DB write still succeeds
 
 ### Database Table: `feedback`
 ```sql
